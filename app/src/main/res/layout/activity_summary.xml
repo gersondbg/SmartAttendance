@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="20dp"
+    android:background="#F8FAFC">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Informe Final"
+        android:textSize="26sp"
+        android:textStyle="bold"
+        android:textColor="#1E3A8A"
+        android:layout_marginBottom="10dp" />
+
+    <TextView
+        android:id="@+id/tvClassStats"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Resumen: alumnos evaluados"
+        android:textSize="16sp"
+        android:textColor="#334155"
+        android:background="#E2E8F0"
+        android:padding="14dp"
+        android:layout_marginBottom="14dp" />
+
+    <ListView
+        android:id="@+id/lvSummaryStudents"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:divider="#CBD5E1"
+        android:dividerHeight="1dp" />
+
+    <Button
+        android:id="@+id/btnExportPdf"
+        android:layout_width="match_parent"
+        android:layout_height="54dp"
+        android:text="COMPARTIR REPORTE"
+        android:backgroundTint="#16A34A"
+        android:layout_marginTop="14dp" />
+
+    <Button
+        android:id="@+id/btnBack"
+        style="@style/Widget.MaterialComponents.Button.TextButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="VOLVER" />
+</LinearLayout>

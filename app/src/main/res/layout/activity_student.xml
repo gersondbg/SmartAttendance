@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:gravity="center"
+    android:background="#F8FAFC">
+
+    <Button
+        android:id="@+id/btnLogout"
+        style="@style/Widget.MaterialComponents.Button.TextButton"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="CERRAR SESION" />
+
+    <ImageView
+        android:id="@+id/ivStatus"
+        android:layout_width="110dp"
+        android:layout_height="110dp"
+        android:src="@android:drawable/presence_online"
+        android:layout_marginTop="18dp"
+        android:layout_marginBottom="24dp" />
+
+    <TextView
+        android:id="@+id/tvWelcome"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Hola, Alumno"
+        android:textColor="#0F172A"
+        android:textSize="24sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tvStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Bluetooth: verificando..."
+        android:textAlignment="center"
+        android:textSize="18sp"
+        android:layout_marginTop="8dp" />
+
+    <TextView
+        android:id="@+id/tvSignalInfo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Senal pendiente"
+        android:textAlignment="center"
+        android:textSize="18sp"
+        android:layout_marginTop="16dp"
+        android:textStyle="bold" />
+
+    <Button
+        android:id="@+id/btnActivate"
+        android:layout_width="match_parent"
+        android:layout_height="54dp"
+        android:text="ACTIVAR SENAL BLUETOOTH"
+        android:layout_marginTop="32dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="El porcentaje real lo calcula el profesor segun el tiempo que detecta tu Bluetooth durante la clase."
+        android:textAlignment="center"
+        android:layout_marginTop="20dp"
+        android:textColor="#64748B" />
+</LinearLayout>
