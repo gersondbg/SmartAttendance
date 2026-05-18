@@ -46,7 +46,7 @@
         android:id="@+id/btnSyncMoodle"
         android:layout_width="match_parent"
         android:layout_height="54dp"
-        android:text="SUBIR A MOODLE CLOUD"
+        android:text="SINCRONIZANDO CON MOODLE..."
         android:backgroundTint="#1E3A8A"
         android:layout_marginTop="8dp" />
 

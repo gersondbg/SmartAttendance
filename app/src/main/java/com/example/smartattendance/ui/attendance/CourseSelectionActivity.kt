@@ -1,14 +1,15 @@
 package com.example.smartattendance.ui.attendance
 
+import com.example.smartattendance.R
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.smartattendance.data.remote.SessionStore
-import com.example.smartattendance.data.repository.AttendanceRepositoryImpl
 import com.example.smartattendance.databinding.ActivityCourseSelectionBinding
 import com.example.smartattendance.ui.login.LoginActivity
 import kotlinx.coroutines.launch
@@ -16,7 +17,7 @@ import kotlinx.coroutines.launch
 class CourseSelectionActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityCourseSelectionBinding
-    private val repository = AttendanceRepositoryImpl()
+    private val viewModel: CourseSelectionViewModel by viewModels()
     private lateinit var adapter: CourseAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -25,20 +26,17 @@ class CourseSelectionActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         setupUI()
-        loadCourses()
+        observeViewModel()
+        
+        viewModel.onIntent(CourseSelectionIntent.LoadCourses)
     }
 
     private fun setupUI() {
-        val teacherName = intent.getStringExtra("USER_NAME") ?: "Profesor"
-        binding.tvWelcomeTeacher.text = "Bienvenido, $teacherName"
+        val teacherName = intent.getStringExtra("USER_NAME") ?: getString(R.string.unspecified)
+        binding.tvWelcomeTeacher.text = getString(R.string.hello_user, teacherName)
 
         adapter = CourseAdapter(emptyList()) { course ->
-            SessionStore.activeCourseId = course.id
-            SessionStore.activeCourseName = course.fullname
-            
-            val intent = Intent(this, SessionSelectionActivity::class.java)
-            intent.putExtra("USER_NAME", teacherName)
-            startActivity(intent)
+            viewModel.onIntent(CourseSelectionIntent.SelectCourse(course))
         }
 
         binding.rvCourses.layoutManager = LinearLayoutManager(this)
@@ -51,21 +49,30 @@ class CourseSelectionActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadCourses() {
-        binding.pbLoadingCourses.visibility = View.VISIBLE
+    private fun observeViewModel() {
         lifecycleScope.launch {
-            repository.getCurrentUserCourses()
-                .onSuccess { courses ->
-                    binding.pbLoadingCourses.visibility = View.GONE
-                    if (courses.isEmpty()) {
-                        Toast.makeText(this@CourseSelectionActivity, "No se encontraron cursos activos", Toast.LENGTH_LONG).show()
+            viewModel.state.collect { state ->
+                binding.pbLoadingCourses.visibility = if (state.isLoading) View.VISIBLE else View.GONE
+                adapter.updateData(state.courses)
+            }
+        }
+
+        lifecycleScope.launch {
+            viewModel.effect.collect { effect ->
+                when (effect) {
+                    is CourseSelectionEffect.NavigateToSessions -> {
+                        SessionStore.activeCourseId = effect.course.id
+                        SessionStore.activeCourseName = effect.course.fullname
+                        val teacherName = intent.getStringExtra("USER_NAME") ?: "Profesor"
+                        val intent = Intent(this@CourseSelectionActivity, SessionSelectionActivity::class.java)
+                        intent.putExtra("USER_NAME", teacherName)
+                        startActivity(intent)
                     }
-                    adapter.updateData(courses)
+                    is CourseSelectionEffect.ShowError -> {
+                        Toast.makeText(this@CourseSelectionActivity, effect.message, Toast.LENGTH_LONG).show()
+                    }
                 }
-                .onFailure { error ->
-                    binding.pbLoadingCourses.visibility = View.GONE
-                    Toast.makeText(this@CourseSelectionActivity, "Error al cargar cursos: ${error.message}", Toast.LENGTH_LONG).show()
-                }
+            }
         }
     }
 }

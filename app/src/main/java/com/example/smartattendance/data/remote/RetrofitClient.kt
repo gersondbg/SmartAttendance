@@ -9,7 +9,7 @@ object RetrofitClient {
     private const val BASE_URL = "https://uniprueba2026.moodlecloud.com/"
 
     private val logging = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BASIC
+        level = HttpLoggingInterceptor.Level.BODY
     }
 
     private val client = OkHttpClient.Builder()

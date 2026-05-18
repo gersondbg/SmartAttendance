@@ -5,47 +5,74 @@ import androidx.lifecycle.viewModelScope
 import com.example.smartattendance.data.repository.AttendanceRepositoryImpl
 import com.example.smartattendance.domain.model.User
 import com.example.smartattendance.domain.usecase.LoginUseCase
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+
+// 1. Definimos los EVENTOS que la UI envía (Intents)
+sealed class LoginIntent {
+    data class LoginUser(val email: String, val pass: String) : LoginIntent()
+    object DemoLogin : LoginIntent()
+}
+
+// 2. Definimos el ESTADO de la pantalla
+data class LoginState(
+    val isLoading: Boolean = false,
+    val user: User? = null,
+    val errorMessage: String? = null
+)
+
+// 3. Definimos EFECTOS (eventos de un solo uso como navegación o Toasts)
+sealed class LoginEffect {
+    data class NavigateToHome(val user: User) : LoginEffect()
+    data class ShowToast(val messageRes: Int) : LoginEffect()
+}
 
 class LoginViewModel(
     private val loginUseCase: LoginUseCase = LoginUseCase(AttendanceRepositoryImpl())
 ) : ViewModel() {
 
-    private val _loginState = MutableStateFlow<LoginState>(LoginState.Idle)
-    val loginState: StateFlow<LoginState> = _loginState
+    private val _state = MutableStateFlow(LoginState())
+    val state: StateFlow<LoginState> = _state
 
-    fun login(email: String, password: String = "") {
-        if (email.isEmpty()) {
-            _loginState.value = LoginState.Error("Por favor ingresa un usuario")
+    private val _effect = MutableSharedFlow<LoginEffect>()
+    val effect: SharedFlow<LoginEffect> = _effect
+
+    // Función centralizada para procesar EVENTOS
+    fun onIntent(intent: LoginIntent) {
+        when (intent) {
+            is LoginIntent.LoginUser -> performLogin(intent.email, intent.pass)
+            is LoginIntent.DemoLogin -> enterDemoMode()
+        }
+    }
+
+    private fun performLogin(email: String, pass: String) {
+        if (email.isEmpty() || pass.isEmpty()) {
+            viewModelScope.launch { _effect.emit(LoginEffect.ShowToast(com.example.smartattendance.R.string.error_empty_credentials)) }
             return
         }
 
-        // El bypass ahora se maneja principalmente en la Activity, 
-        // pero dejamos esto por consistencia si se llama directamente.
-        if (email.trim().lowercase() == "demo") {
-            _loginState.value = LoginState.Success(
-                User(2, "demo_teacher", "Profesor de Prueba", "demo@moodle.com", "teacher")
-            )
-            return
-        }
-
-        _loginState.value = LoginState.Loading
+        _state.value = _state.value.copy(isLoading = true, errorMessage = null)
+        
         viewModelScope.launch {
-            val result = loginUseCase(email, password)
+            val result = loginUseCase(email, pass)
             result.onSuccess { user ->
-                _loginState.value = LoginState.Success(user)
+                _state.value = _state.value.copy(isLoading = false, user = user)
+                _effect.emit(LoginEffect.NavigateToHome(user))
             }.onFailure { error ->
-                _loginState.value = LoginState.Error(error.message ?: "Error desconocido")
+                _state.value = _state.value.copy(isLoading = false, errorMessage = error.message)
+                _effect.emit(LoginEffect.ShowToast(com.example.smartattendance.R.string.invalid_credentials))
             }
         }
     }
 
-    sealed class LoginState {
-        object Idle : LoginState()
-        object Loading : LoginState()
-        data class Success(val user: User) : LoginState()
-        data class Error(val message: String) : LoginState()
+    private fun enterDemoMode() {
+        val demoUser = User(2, "demo_teacher", "Profesor de Prueba", "demo@moodle.com", "teacher")
+        _state.value = _state.value.copy(user = demoUser)
+        viewModelScope.launch {
+            _effect.emit(LoginEffect.NavigateToHome(demoUser))
+        }
     }
 }

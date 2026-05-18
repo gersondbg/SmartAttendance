@@ -32,7 +32,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Duración (min): "
+            android:text="@string/duration_label"
             android:textColor="#333333"/>
 
         <EditText
@@ -41,7 +41,7 @@
             android:layout_height="wrap_content"
             android:inputType="number"
             android:text="60"
-            android:hint="Minutos"/>
+            android:hint="@string/duration_hint"/>
 
         <View
             android:layout_width="0dp"
@@ -54,9 +54,9 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:layout_marginTop="8dp">
-        <Button android:id="@+id/btnStart" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="START" android:backgroundTint="#4CAF50"/>
-        <Button android:id="@+id/btnPause" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="REANUDAR"/>
-        <Button android:id="@+id/btnFinish" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="FIN" android:backgroundTint="#F44336"/>
+        <Button android:id="@+id/btnStart" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/btn_start" android:backgroundTint="#4CAF50"/>
+        <Button android:id="@+id/btnPause" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/btn_pause"/>
+        <Button android:id="@+id/btnFinish" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/btn_finish" android:backgroundTint="#F44336"/>
     </LinearLayout>
 
     <TextView
@@ -72,7 +72,7 @@
         android:id="@+id/tvPresentCount"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="0"
+        android:text="@string/students_present"
         android:textSize="20sp"/>
 
     <androidx.recyclerview.widget.RecyclerView
@@ -87,15 +87,15 @@
         android:layout_height="80dp"
         android:background="#EEEEEE"
         android:textSize="10sp"
-        android:text="Log inicializado..."/>
+        android:text="@string/log_initialized"/>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal">
-        <Button android:id="@+id/btnScan" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="SCAN"/>
-        <Button android:id="@+id/btnSummary" android:layout_width="0dp" android:layout_weight="1.5" android:layout_height="wrap_content" android:text="REPORTE FINAL" android:backgroundTint="#673AB7"/>
-        <Button android:id="@+id/btnLogout" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="SALIR"/>
+        <Button android:id="@+id/btnScan" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/btn_scan"/>
+        <Button android:id="@+id/btnSummary" android:layout_width="0dp" android:layout_weight="1.5" android:layout_height="wrap_content" android:text="@string/btn_summary" android:backgroundTint="#673AB7"/>
+        <Button android:id="@+id/btnLogout" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/btn_exit"/>
     </LinearLayout>
 
     <ProgressBar

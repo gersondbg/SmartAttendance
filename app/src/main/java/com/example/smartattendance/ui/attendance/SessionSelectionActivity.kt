@@ -1,26 +1,23 @@
 package com.example.smartattendance.ui.attendance
 
+import com.example.smartattendance.R
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.smartattendance.data.remote.SessionStore
-import com.example.smartattendance.data.repository.AttendanceRepositoryImpl
 import com.example.smartattendance.databinding.ActivitySessionSelectionBinding
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.*
 
 class SessionSelectionActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivitySessionSelectionBinding
-    private val repository = AttendanceRepositoryImpl()
+    private val viewModel: SessionSelectionViewModel by viewModels()
     private lateinit var adapter: GenericSelectionAdapter
-    
-    private var isSelectingModule = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,84 +25,66 @@ class SessionSelectionActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         setupUI()
-        loadModules()
+        observeViewModel()
+        
+        val courseId = SessionStore.activeCourseId ?: 0
+        viewModel.onIntent(SessionSelectionIntent.LoadModules(courseId))
     }
 
     private fun setupUI() {
         adapter = GenericSelectionAdapter(emptyList()) { item ->
-            if (isSelectingModule) {
+            if (viewModel.state.value.isSelectingModule) {
                 SessionStore.activeAttendanceId = item.id
                 SessionStore.activeAttendanceName = item.title
-                loadSessions(item.id)
+                viewModel.onIntent(SessionSelectionIntent.SelectModule(item.id, item.title))
             } else {
                 SessionStore.activeSessionId = item.id
-                val intent = Intent(this, TeacherActivity::class.java)
-                intent.putExtra("USER_NAME", getIntent().getStringExtra("USER_NAME"))
-                startActivity(intent)
-                finish()
+                viewModel.onIntent(SessionSelectionIntent.SelectSession(item.id))
             }
         }
 
         binding.rvSelection.layoutManager = LinearLayoutManager(this)
         binding.rvSelection.adapter = adapter
         
+        binding.btnCreateSession.setOnClickListener {
+            viewModel.onIntent(SessionSelectionIntent.CreateSession)
+        }
+
         binding.btnBack.setOnClickListener {
-            if (!isSelectingModule) {
-                loadModules()
+            if (!viewModel.state.value.isSelectingModule) {
+                val courseId = SessionStore.activeCourseId ?: 0
+                viewModel.onIntent(SessionSelectionIntent.LoadModules(courseId))
             } else {
                 finish()
             }
         }
     }
 
-    private fun loadModules() {
-        isSelectingModule = true
-        binding.tvSelectionContext.text = "Selecciona el módulo de asistencia"
-        binding.pbLoading.visibility = View.VISIBLE
-        
+    private fun observeViewModel() {
         lifecycleScope.launch {
-            repository.getAttendanceModules(SessionStore.activeCourseId ?: 0)
-                .onSuccess { modules ->
-                    binding.pbLoading.visibility = View.GONE
-                    val items = modules.map { 
-                        GenericSelectionAdapter.SelectionItem(it.id, it.name, "Módulo de Asistencia")
-                    }
-                    adapter.updateData(items)
-                    if (items.isEmpty()) {
-                        Toast.makeText(this@SessionSelectionActivity, "No hay módulos de asistencia en este curso", Toast.LENGTH_SHORT).show()
-                    }
-                }
-                .onFailure {
-                    binding.pbLoading.visibility = View.GONE
-                    Toast.makeText(this@SessionSelectionActivity, "Error: ${it.message}", Toast.LENGTH_SHORT).show()
-                }
+            viewModel.state.collect { state ->
+                binding.pbLoading.visibility = if (state.isLoading) View.VISIBLE else View.GONE
+                binding.tvSelectionContext.text = getString(state.titleRes)
+                binding.btnCreateSession.visibility = if (state.showCreateButton) View.VISIBLE else View.GONE
+                adapter.updateData(state.items)
+            }
         }
-    }
-
-    private fun loadSessions(attendanceId: Int) {
-        isSelectingModule = false
-        binding.tvSelectionContext.text = "Selecciona la sesión de Moodle"
-        binding.pbLoading.visibility = View.VISIBLE
-        
-        val dateFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
 
         lifecycleScope.launch {
-            repository.getSessions(attendanceId)
-                .onSuccess { sessions ->
-                    binding.pbLoading.visibility = View.GONE
-                    val items = sessions.map { 
-                        val dateStr = dateFormat.format(Date(it.date * 1000))
-                        GenericSelectionAdapter.SelectionItem(it.id, dateStr, it.description)
+            viewModel.effect.collect { effect ->
+                when (effect) {
+                    is SessionSelectionEffect.NavigateToTeacher -> {
+                        val intent = Intent(this@SessionSelectionActivity, TeacherActivity::class.java)
+                        intent.putExtra("USER_NAME", getIntent().getStringExtra("USER_NAME"))
+                        startActivity(intent)
+                        finish()
                     }
-                    adapter.updateData(items)
-                    if (items.isEmpty()) {
-                        Toast.makeText(this@SessionSelectionActivity, "No hay sesiones programadas", Toast.LENGTH_SHORT).show()
+                    is SessionSelectionEffect.Exit -> finish()
+                    is SessionSelectionEffect.ShowError -> {
+                        Toast.makeText(this@SessionSelectionActivity, effect.message, Toast.LENGTH_SHORT).show()
                     }
                 }
-                .onFailure {
-                    binding.pbLoading.visibility = View.GONE
-                    Toast.makeText(this@SessionSelectionActivity, "Error: ${it.message}", Toast.LENGTH_SHORT).show()
-                }
+            }
         }
     }
 }

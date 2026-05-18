@@ -67,13 +67,35 @@ interface MoodleApiService {
 
     @POST("webservice/rest/server.php")
     @FormUrlEncoded
+    suspend fun addAttendanceSession(
+        @Field("wstoken") token: String,
+        @Field("wsfunction") function: String = "mod_attendance_add_session",
+        @Field("moodlewsrestformat") format: String = "json",
+        @Field("attendanceid") attendanceId: Int,
+        @Field("sessdate") sessDate: Long,
+        @Field("duration") duration: Int = 3600,
+        @Field("description") description: String = "Sesión creada desde App"
+    ): JsonElement
+
+    @POST("webservice/rest/server.php")
+    @FormUrlEncoded
     suspend fun updateAttendanceStatus(
         @Field("wstoken") token: String,
         @Field("wsfunction") function: String = "mod_attendance_update_user_status",
         @Field("moodlewsrestformat") format: String = "json",
         @Field("sessionid") sessionId: Int,
-        @Field("userid") userId: Int,
-        @Field("statusid") statusId: String, // Usar String por flexibilidad
-        @Field("takenbyid") teacherId: Int
+        @Field("studentid") studentId: Int,
+        @Field("takenbyid") teacherId: Int,
+        @Field("statusid") statusId: Int,
+        @Field("statusset") statusSet: Int = 0
+    ): JsonElement
+
+    @POST("webservice/rest/server.php")
+    @FormUrlEncoded
+    suspend fun getAttendanceSession(
+        @Field("wstoken") token: String,
+        @Field("wsfunction") function: String = "mod_attendance_get_session",
+        @Field("moodlewsrestformat") format: String = "json",
+        @Field("sessionid") sessionId: Int
     ): JsonElement
 }

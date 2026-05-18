@@ -15,7 +15,8 @@ data class StudentDisplay(
     val concentration: Int,
     val isConnected: Boolean,
     val isMoving: Boolean,
-    val lastSeenMillis: Long
+    val lastSeenMillis: Long,
+    val disconnections: Int
 )
 
 class StudentAdapter(
@@ -41,7 +42,7 @@ class StudentAdapter(
                 "Desconectado"
             }
             
-            tvStudentDetails.text = "$connectionText | Conc: ${student.concentration}%"
+            tvStudentDetails.text = "$connectionText | Conc: ${student.concentration}% | Cortes: ${student.disconnections}"
             tvCurrentStatus.text = when(student.status) {
                 "P" -> "PRESENTE"
                 "L" -> "RETRASO"

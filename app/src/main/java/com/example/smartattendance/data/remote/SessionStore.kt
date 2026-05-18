@@ -2,6 +2,7 @@ package com.example.smartattendance.data.remote
 
 object SessionStore {
     var moodleToken: String? = null
+    var attendanceToken: String? = null
     var currentUserId: Int? = null
     var currentUserRole: String? = null
     var activeCourseId: Int? = null
@@ -12,6 +13,7 @@ object SessionStore {
 
     fun clear() {
         moodleToken = null
+        attendanceToken = null
         currentUserId = null
         currentUserRole = null
         activeCourseId = null

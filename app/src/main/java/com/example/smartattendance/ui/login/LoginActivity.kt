@@ -1,5 +1,6 @@
 package com.example.smartattendance.ui.login
 
+import com.example.smartattendance.R
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
@@ -23,67 +24,62 @@ class LoginActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        
+        setupUI()
         setupListeners()
         observeViewModel()
     }
 
+    private fun setupUI() {
+        binding.btnLogin.text = getString(R.string.login_button)
+        // El secreto es poner el hint en el contenedor (til), NO en el edit text (et)
+        binding.tilEmail.hint = getString(R.string.email_hint)
+        binding.tilPassword.hint = getString(R.string.password_hint)
+    }
+
     private fun setupListeners() {
-        binding.btnLogin.setOnClickListener { performLogin() }
+        binding.btnLogin.setOnClickListener {
+            val email = binding.etEmail.text.toString().trim()
+            val password = binding.etPassword.text.toString().trim()
+            
+            if (email.lowercase() == "demo") {
+                viewModel.onIntent(LoginIntent.DemoLogin)
+            } else {
+                viewModel.onIntent(LoginIntent.LoginUser(email, password))
+            }
+        }
         
         binding.etPassword.setOnEditorActionListener { _, _, _ ->
-            performLogin()
+            binding.btnLogin.performClick()
             true
         }
     }
 
-    private fun performLogin() {
-        val email = binding.etEmail.text.toString().trim()
-        val password = binding.etPassword.text.toString().trim()
-
-        // Bypass Profesional para el modo Demo: Inicializa sesión global
-        if (email.lowercase() == "demo") {
-            SessionStore.currentUserId = 2
-            SessionStore.currentUserRole = "teacher"
-            val user = User(2, "profesor_demo", "Profesor de Prueba", "demo@moodle.com", "teacher")
-            navigateToHome(user)
-            return
-        }
-
-        if (email.isNotEmpty() && password.isNotEmpty()) {
-            viewModel.login(email, password)
-        } else {
-            Toast.makeText(this, "Ingresa usuario y contraseña", Toast.LENGTH_SHORT).show()
-        }
-    }
-
     private fun observeViewModel() {
+        // Observar el ESTADO (Arquitectura basada en eventos/MVI)
         lifecycleScope.launch {
-            viewModel.loginState.collect { state ->
-                when (state) {
-                    is LoginViewModel.LoginState.Loading -> {
-                        binding.progressBar.visibility = View.VISIBLE
-                        binding.btnLogin.isEnabled = false
-                    }
-                    is LoginViewModel.LoginState.Success -> {
-                        binding.progressBar.visibility = View.GONE
-                        binding.btnLogin.isEnabled = true
-                        navigateToHome(state.user)
-                    }
-                    is LoginViewModel.LoginState.Error -> {
-                        binding.progressBar.visibility = View.GONE
-                        binding.btnLogin.isEnabled = true
-                        val msg = if (state.message.contains("403")) 
-                            "Acceso Denegado (403). Verifica tus datos reales."
-                            else state.message
-                        Toast.makeText(this@LoginActivity, msg, Toast.LENGTH_LONG).show()
-                    }
-                    else -> binding.progressBar.visibility = View.GONE
+            viewModel.state.collect { state ->
+                binding.progressBar.visibility = if (state.isLoading) View.VISIBLE else View.GONE
+                binding.btnLogin.isEnabled = !state.isLoading
+            }
+        }
+
+        // Observar EFECTOS (Side effects: Navegación, Toasts)
+        lifecycleScope.launch {
+            viewModel.effect.collect { effect ->
+                when (effect) {
+                    is LoginEffect.NavigateToHome -> navigateToHome(effect.user)
+                    is LoginEffect.ShowToast -> Toast.makeText(this@LoginActivity, getString(effect.messageRes), Toast.LENGTH_LONG).show()
                 }
             }
         }
     }
 
     private fun navigateToHome(user: User) {
+        // Guardar en SessionStore (esto podría ser parte de un UseCase, pero lo mantenemos aquí por simplicidad)
+        SessionStore.currentUserId = user.id
+        SessionStore.currentUserRole = user.role
+
         val intent = if (user.role == "teacher") {
             Intent(this, CourseSelectionActivity::class.java)
         } else {
