@@ -38,9 +38,17 @@
         android:id="@+id/btnExportPdf"
         android:layout_width="match_parent"
         android:layout_height="54dp"
-        android:text="COMPARTIR REPORTE"
+        android:text="COMPARTIR REPORTE PDF"
         android:backgroundTint="#16A34A"
         android:layout_marginTop="14dp" />
+
+    <Button
+        android:id="@+id/btnSyncMoodle"
+        android:layout_width="match_parent"
+        android:layout_height="54dp"
+        android:text="SUBIR A MOODLE CLOUD"
+        android:backgroundTint="#1E3A8A"
+        android:layout_marginTop="8dp" />
 
     <Button
         android:id="@+id/btnBack"

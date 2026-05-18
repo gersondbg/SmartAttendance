@@ -46,4 +46,34 @@ interface MoodleApiService {
         @Field("moodlewsrestformat") format: String = "json",
         @Field("userid") userId: Int
     ): JsonElement
+
+    @POST("webservice/rest/server.php")
+    @FormUrlEncoded
+    suspend fun getCourseContents(
+        @Field("wstoken") token: String,
+        @Field("wsfunction") function: String = "core_course_get_contents",
+        @Field("moodlewsrestformat") format: String = "json",
+        @Field("courseid") courseId: Int
+    ): JsonElement
+
+    @POST("webservice/rest/server.php")
+    @FormUrlEncoded
+    suspend fun getAttendanceSessions(
+        @Field("wstoken") token: String,
+        @Field("wsfunction") function: String = "mod_attendance_get_sessions",
+        @Field("moodlewsrestformat") format: String = "json",
+        @Field("attendanceid") attendanceId: Int
+    ): JsonElement
+
+    @POST("webservice/rest/server.php")
+    @FormUrlEncoded
+    suspend fun updateAttendanceStatus(
+        @Field("wstoken") token: String,
+        @Field("wsfunction") function: String = "mod_attendance_update_user_status",
+        @Field("moodlewsrestformat") format: String = "json",
+        @Field("sessionid") sessionId: Int,
+        @Field("userid") userId: Int,
+        @Field("statusid") statusId: String, // Usar String por flexibilidad
+        @Field("takenbyid") teacherId: Int
+    ): JsonElement
 }

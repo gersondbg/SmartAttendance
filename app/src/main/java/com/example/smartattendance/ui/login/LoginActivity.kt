@@ -7,10 +7,11 @@ import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.example.smartattendance.data.remote.SessionStore
 import com.example.smartattendance.databinding.ActivityLoginBinding
 import com.example.smartattendance.domain.model.User
+import com.example.smartattendance.ui.attendance.CourseSelectionActivity
 import com.example.smartattendance.ui.attendance.StudentActivity
-import com.example.smartattendance.ui.attendance.TeacherActivity
 import kotlinx.coroutines.launch
 
 class LoginActivity : AppCompatActivity() {
@@ -27,17 +28,31 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
-        binding.btnLogin.setOnClickListener {
-            val email = binding.etEmail.text.toString().trim()
-            val password = binding.etPassword.text.toString().trim()
+        binding.btnLogin.setOnClickListener { performLogin() }
+        
+        binding.etPassword.setOnEditorActionListener { _, _, _ ->
+            performLogin()
+            true
+        }
+    }
 
-            if (email.isNotEmpty() && password.isNotEmpty()) {
-                viewModel.login(email, password)
-            } else if (email.equals("profe", ignoreCase = true) || email.equals("alumno", ignoreCase = true)) {
-                viewModel.login(email)
-            } else {
-                Toast.makeText(this, "Ingresa usuario y contraseña", Toast.LENGTH_SHORT).show()
-            }
+    private fun performLogin() {
+        val email = binding.etEmail.text.toString().trim()
+        val password = binding.etPassword.text.toString().trim()
+
+        // Bypass Profesional para el modo Demo: Inicializa sesión global
+        if (email.lowercase() == "demo") {
+            SessionStore.currentUserId = 2
+            SessionStore.currentUserRole = "teacher"
+            val user = User(2, "profesor_demo", "Profesor de Prueba", "demo@moodle.com", "teacher")
+            navigateToHome(user)
+            return
+        }
+
+        if (email.isNotEmpty() && password.isNotEmpty()) {
+            viewModel.login(email, password)
+        } else {
+            Toast.makeText(this, "Ingresa usuario y contraseña", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -49,19 +64,19 @@ class LoginActivity : AppCompatActivity() {
                         binding.progressBar.visibility = View.VISIBLE
                         binding.btnLogin.isEnabled = false
                     }
-
                     is LoginViewModel.LoginState.Success -> {
                         binding.progressBar.visibility = View.GONE
                         binding.btnLogin.isEnabled = true
                         navigateToHome(state.user)
                     }
-
                     is LoginViewModel.LoginState.Error -> {
                         binding.progressBar.visibility = View.GONE
                         binding.btnLogin.isEnabled = true
-                        Toast.makeText(this@LoginActivity, state.message, Toast.LENGTH_SHORT).show()
+                        val msg = if (state.message.contains("403")) 
+                            "Acceso Denegado (403). Verifica tus datos reales."
+                            else state.message
+                        Toast.makeText(this@LoginActivity, msg, Toast.LENGTH_LONG).show()
                     }
-
                     else -> binding.progressBar.visibility = View.GONE
                 }
             }
@@ -70,11 +85,10 @@ class LoginActivity : AppCompatActivity() {
 
     private fun navigateToHome(user: User) {
         val intent = if (user.role == "teacher") {
-            Intent(this, TeacherActivity::class.java)
+            Intent(this, CourseSelectionActivity::class.java)
         } else {
             Intent(this, StudentActivity::class.java)
         }
-
         intent.putExtra("USER_NAME", user.fullname)
         intent.putExtra("USER_USERNAME", user.username)
         intent.putExtra("USER_ID", user.id)

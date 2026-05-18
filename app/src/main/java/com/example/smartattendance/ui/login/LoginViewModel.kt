@@ -18,20 +18,15 @@ class LoginViewModel(
 
     fun login(email: String, password: String = "") {
         if (email.isEmpty()) {
-            _loginState.value = LoginState.Error("Por favor ingresa un usuario o correo")
+            _loginState.value = LoginState.Error("Por favor ingresa un usuario")
             return
         }
 
-        if (email.equals("profe", ignoreCase = true)) {
+        // El bypass ahora se maneja principalmente en la Activity, 
+        // pero dejamos esto por consistencia si se llama directamente.
+        if (email.trim().lowercase() == "demo") {
             _loginState.value = LoginState.Success(
-                User(0, "profesor1", "Profesor Demo", "profesor1@demo.local", "teacher")
-            )
-            return
-        }
-
-        if (email.equals("alumno", ignoreCase = true)) {
-            _loginState.value = LoginState.Success(
-                User(1, "alumno1", "Alumno 1 Demo", "alumno1@demo.local", "student")
+                User(2, "demo_teacher", "Profesor de Prueba", "demo@moodle.com", "teacher")
             )
             return
         }

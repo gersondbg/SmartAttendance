@@ -6,6 +6,9 @@ object SessionStore {
     var currentUserRole: String? = null
     var activeCourseId: Int? = null
     var activeCourseName: String? = null
+    var activeAttendanceId: Int? = null
+    var activeAttendanceName: String? = null
+    var activeSessionId: Int? = null
 
     fun clear() {
         moodleToken = null
@@ -13,5 +16,8 @@ object SessionStore {
         currentUserRole = null
         activeCourseId = null
         activeCourseName = null
+        activeAttendanceId = null
+        activeAttendanceName = null
+        activeSessionId = null
     }
 }
