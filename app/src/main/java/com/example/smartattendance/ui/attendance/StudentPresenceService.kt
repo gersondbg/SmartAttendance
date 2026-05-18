@@ -41,6 +41,9 @@ class StudentPresenceService : Service(), SensorEventListener {
     private var maintenanceRestart = false
     private var movingStartedAt = 0L
     private var stableStartedAt = 0L
+    private var lastX: Float? = null
+    private var lastY: Float? = null
+    private var lastZ: Float? = null
 
     private val restartRunnable = object : Runnable {
         override fun run() {
@@ -53,11 +56,13 @@ class StudentPresenceService : Service(), SensorEventListener {
         override fun onStartSuccess(settingsInEffect: AdvertiseSettings?) {
             advertising = true
             notifyState()
+            broadcastState()
         }
 
         override fun onStartFailure(errorCode: Int) {
             advertising = false
             notifyState("Error BLE: $errorCode")
+            broadcastState()
         }
     }
 
@@ -236,24 +241,49 @@ class StudentPresenceService : Service(), SensorEventListener {
         val y = event.values[1]
         val z = event.values[2]
         val magnitude = kotlin.math.sqrt(x * x + y * y + z * z)
+        val lastMagnitude = run {
+            val lx = lastX
+            val ly = lastY
+            val lz = lastZ
+            if (lx != null && ly != null && lz != null) kotlin.math.sqrt(lx * lx + ly * ly + lz * lz) else magnitude
+        }
+        val delta = kotlin.math.abs(x - (lastX ?: x)) +
+            kotlin.math.abs(y - (lastY ?: y)) +
+            kotlin.math.abs(z - (lastZ ?: z))
+        lastX = x
+        lastY = y
+        lastZ = z
         val now = System.currentTimeMillis()
-        val movingNow = kotlin.math.abs(magnitude - 9.81f) > 1.8f || kotlin.math.abs(x) > 3.0f || kotlin.math.abs(y) > 3.0f
+        val movingNow = delta > 0.65f ||
+            kotlin.math.abs(magnitude - lastMagnitude) > 0.35f ||
+            kotlin.math.abs(magnitude - 9.81f) > 0.9f
 
         if (movingNow) {
             if (movingStartedAt == 0L) movingStartedAt = now
             stableStartedAt = 0L
-            if (stable && now - movingStartedAt >= 1_500L) {
+            if (stable && now - movingStartedAt >= 350L) {
                 stable = false
                 startAdvertising()
+                broadcastState()
             }
         } else {
             if (stableStartedAt == 0L) stableStartedAt = now
             movingStartedAt = 0L
-            if (!stable && now - stableStartedAt >= 2_500L) {
+            if (!stable && now - stableStartedAt >= 1_800L) {
                 stable = true
                 startAdvertising()
+                broadcastState()
             }
         }
+    }
+
+    private fun broadcastState() {
+        val intent = Intent(ACTION_STATE_CHANGED)
+            .setPackage(packageName)
+            .putExtra(EXTRA_STABLE, stable)
+            .putExtra(EXTRA_ADVERTISING, advertising)
+            .putExtra(EXTRA_RESTARTING, maintenanceRestart)
+        sendBroadcast(intent)
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
@@ -264,8 +294,11 @@ class StudentPresenceService : Service(), SensorEventListener {
         private const val ACTION_START = "com.example.smartattendance.student.START"
         private const val ACTION_STOP = "com.example.smartattendance.student.STOP"
         private const val ACTION_UPDATE_STABILITY = "com.example.smartattendance.student.STABILITY"
+        const val ACTION_STATE_CHANGED = "com.example.smartattendance.student.STATE_CHANGED"
         private const val EXTRA_USERNAME = "username"
-        private const val EXTRA_STABLE = "stable"
+        const val EXTRA_STABLE = "stable"
+        const val EXTRA_ADVERTISING = "advertising"
+        const val EXTRA_RESTARTING = "restarting"
 
         fun start(context: Context, username: String, stable: Boolean) {
             val intent = Intent(context, StudentPresenceService::class.java)

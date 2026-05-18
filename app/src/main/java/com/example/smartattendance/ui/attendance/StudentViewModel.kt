@@ -58,23 +58,12 @@ class StudentViewModel : ViewModel() {
                     concentrationPercent = 0
                 )
                 viewModelScope.launch {
-                    val prefix = if (_state.value.isStable) "SA-" else "MV-"
-                    _effect.emit(StudentEffect.StartAdvertising(prefix, _state.value.username))
                     _effect.emit(StudentEffect.StartPresenceService(_state.value.username, _state.value.isStable))
                 }
             }
             is StudentIntent.UpdateStability -> {
                 if (_state.value.isStable != intent.isStable) {
-                    val oldStable = _state.value.isStable
                     _state.value = _state.value.copy(isStable = intent.isStable)
-                    
-                    if (_state.value.isVisibilityActive) {
-                        viewModelScope.launch {
-                            val prefix = if (intent.isStable) "SA-" else "MV-"
-                            _effect.emit(StudentEffect.StartAdvertising(prefix, _state.value.username))
-                            _effect.emit(StudentEffect.UpdatePresenceService(intent.isStable))
-                        }
-                    }
                 }
             }
             is StudentIntent.Tick -> handleTick()
@@ -87,12 +76,10 @@ class StudentViewModel : ViewModel() {
         if (!currentState.isVisibilityActive) return
 
         val newTotal = currentState.totalSeconds + 1
-        var newPresent = currentState.presentSeconds
-        
-        if (currentState.isStable) {
-            newPresent++
+        val newPresent = if (currentState.isStable) {
+            currentState.presentSeconds + 1
         } else {
-            if (newPresent > 0) newPresent--
+            (currentState.presentSeconds - 2).coerceAtLeast(0)
         }
 
         val newPercent = if (newTotal == 0) 0 else (newPresent * 100) / newTotal

@@ -38,7 +38,7 @@ class TeacherClassSessionService : Service() {
     private val scanRunnable = object : Runnable {
         override fun run() {
             scanOnce()
-            handler.postDelayed(this, 6_000L)
+            handler.postDelayed(this, 2_500L)
         }
     }
     private val tick = object : Runnable {
@@ -103,7 +103,7 @@ class TeacherClassSessionService : Service() {
                 .build()
             val filters = listOf(ScanFilter.Builder().setServiceUuid(smartUuid).build())
             scanner.startScan(filters, settings, scanCallback)
-            handler.postDelayed({ stopScan() }, 4_500L)
+            handler.postDelayed({ stopScan() }, 2_000L)
         } catch (_: Exception) {
         }
     }

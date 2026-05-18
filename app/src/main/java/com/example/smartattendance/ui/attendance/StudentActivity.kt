@@ -2,7 +2,10 @@ package com.example.smartattendance.ui.attendance
 
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -17,7 +20,6 @@ import android.bluetooth.le.AdvertiseCallback
 import android.bluetooth.le.AdvertiseData
 import android.bluetooth.le.AdvertiseSettings
 import android.bluetooth.le.BluetoothLeAdvertiser
-import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -44,6 +46,14 @@ class StudentActivity : AppCompatActivity(), SensorEventListener {
 
     private var classTimer: CountDownTimer? = null
     private var pendingAutoStart = false
+
+    private val presenceStateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action != StudentPresenceService.ACTION_STATE_CHANGED) return
+            val stable = intent.getBooleanExtra(StudentPresenceService.EXTRA_STABLE, true)
+            viewModel.onIntent(StudentIntent.UpdateStability(stable))
+        }
+    }
     
     private val SMART_UUID = ParcelUuid(UUID.fromString("0000b81d-0000-1000-8000-00805f9b34fb"))
 
@@ -72,6 +82,7 @@ class StudentActivity : AppCompatActivity(), SensorEventListener {
 
         setupUI()
         observeViewModel()
+        registerPresenceReceiver()
         requestBluetoothSetup()
         pendingAutoStart = true
         tryAutoStartPresence()
@@ -97,7 +108,6 @@ class StudentActivity : AppCompatActivity(), SensorEventListener {
                             startActivity(intent)
                         }
                         is StudentEffect.StartAdvertising -> {
-                            startAdvertising(effect.prefix, effect.username)
                             if (effect.prefix == "SA-") {
                                 Toast.makeText(this@StudentActivity, getString(R.string.connected_msg), Toast.LENGTH_SHORT).show()
                             }
@@ -121,17 +131,26 @@ class StudentActivity : AppCompatActivity(), SensorEventListener {
             return
         }
 
-        val percent = state.concentrationPercent
-        binding.tvStatus.text = getString(R.string.transmitting_presence, percent)
-        
         if (state.isStable) {
             binding.tvStatus.setTextColor(android.graphics.Color.rgb(22, 163, 74))
-            binding.tvSignalInfo.text = getString(R.string.device_stable)
+            binding.tvStatus.text = "Bluetooth: ENVIANDO SENAL"
+            binding.tvSignalInfo.text = "Estado: ESTABLE | Concentracion local: ${state.concentrationPercent}%"
             binding.tvSignalInfo.setTextColor(android.graphics.Color.rgb(22, 163, 74))
         } else {
             binding.tvStatus.setTextColor(android.graphics.Color.rgb(220, 38, 38))
-            binding.tvSignalInfo.text = getString(R.string.device_moving)
+            binding.tvStatus.text = "Bluetooth: ENVIANDO SENAL"
+            binding.tvSignalInfo.text = "Estado: MOVIMIENTO | Concentracion local: ${state.concentrationPercent}%"
             binding.tvSignalInfo.setTextColor(android.graphics.Color.rgb(202, 138, 4))
+        }
+    }
+
+    private fun registerPresenceReceiver() {
+        val filter = IntentFilter(StudentPresenceService.ACTION_STATE_CHANGED)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(presenceStateReceiver, filter, RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(presenceStateReceiver, filter)
         }
     }
 
@@ -216,25 +235,14 @@ class StudentActivity : AppCompatActivity(), SensorEventListener {
 
     override fun onResume() {
         super.onResume()
-        accelerometer?.let {
-            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
-        }
     }
 
     override fun onPause() {
         super.onPause()
-        sensorManager.unregisterListener(this)
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
-        if (event?.sensor?.type == Sensor.TYPE_ACCELEROMETER) {
-            val x = event.values[0]
-            val y = event.values[1]
-            val z = event.values[2]
-            
-            val isStable = (z in 8.5..11.0 && x in -2.0..2.0 && y in -2.0..2.0)
-            viewModel.onIntent(StudentIntent.UpdateStability(isStable))
-        }
+        // La deteccion real de movimiento vive en StudentPresenceService para funcionar con pantalla bloqueada.
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
@@ -269,5 +277,9 @@ class StudentActivity : AppCompatActivity(), SensorEventListener {
         super.onDestroy()
         classTimer?.cancel()
         sensorManager.unregisterListener(this)
+        try {
+            unregisterReceiver(presenceStateReceiver)
+        } catch (_: Exception) {
+        }
     }
 }

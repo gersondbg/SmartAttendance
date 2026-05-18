@@ -11,10 +11,11 @@ data class StudentDisplay(
     val id: Int,
     val username: String,
     val fullName: String,
-    val status: String, // P, L, E, A
+    val status: String,
+    val attendanceText: String,
+    val presenceText: String,
     val concentration: Int,
-    val isConnected: Boolean,
-    val isMoving: Boolean,
+    val presenceState: PresenceState,
     val lastSeenMillis: Long,
     val disconnections: Int
 )
@@ -35,32 +36,26 @@ class StudentAdapter(
         val student = students[position]
         with(holder.binding) {
             tvStudentName.text = student.fullName
-            
-            val connectionText = if (student.isConnected) {
-                if (student.isMoving) "¡EN MOVIMIENTO!" else "Conectado"
-            } else {
-                "Desconectado"
-            }
-            
-            tvStudentDetails.text = "$connectionText | Conc: ${student.concentration}% | Cortes: ${student.disconnections}"
-            tvCurrentStatus.text = when(student.status) {
-                "P" -> "PRESENTE"
+            tvStudentDetails.text = "${student.attendanceText} | Ahora: ${student.presenceText} | Conc: ${student.concentration}% | Cortes: ${student.disconnections}"
+            tvCurrentStatus.text = when (student.status) {
+                "P" -> "ASISTIO"
                 "L" -> "RETRASO"
                 "E" -> "JUSTIFICADO"
-                "A" -> "AUSENTE"
-                else -> "AUSENTE"
+                "A" -> "NO ASISTIO"
+                else -> "NO ASISTIO"
             }
 
-            // Colores del indicador
-            val statusColor = when {
-                student.isConnected && !student.isMoving -> Color.parseColor("#10B981") // Verde
-                student.isConnected && student.isMoving -> Color.parseColor("#F59E0B") // Naranja
-                student.status == "E" -> Color.parseColor("#3B82F6") // Azul
-                else -> Color.parseColor("#94A3B8") // Gris
-            }
-            viewStatusIndicator.backgroundTintList = ColorStateList.valueOf(statusColor)
+            viewStatusIndicator.backgroundTintList = ColorStateList.valueOf(
+                when (student.presenceState) {
+                    PresenceState.InClass -> Color.parseColor("#10B981")
+                    PresenceState.Moving -> Color.parseColor("#F59E0B")
+                    PresenceState.Restarting -> Color.parseColor("#3B82F6")
+                    PresenceState.SignalLost -> Color.parseColor("#F97316")
+                    PresenceState.Disconnected -> Color.parseColor("#EF4444")
+                    PresenceState.NotSeen -> Color.parseColor("#94A3B8")
+                }
+            )
 
-            // Configurar botones
             setupButton(btnP, "P", student.status == "P")
             setupButton(btnL, "L", student.status == "L")
             setupButton(btnE, "E", student.status == "E")
@@ -75,20 +70,24 @@ class StudentAdapter(
 
     private fun setupButton(button: com.google.android.material.button.MaterialButton, type: String, isSelected: Boolean) {
         if (isSelected) {
-            button.setBackgroundColor(when(type) {
-                "P" -> Color.parseColor("#DCFCE7")
-                "L" -> Color.parseColor("#FEF3C7")
-                "E" -> Color.parseColor("#DBEAFE")
-                "A" -> Color.parseColor("#FEE2E2")
-                else -> Color.LTGRAY
-            })
-            button.setTextColor(when(type) {
-                "P" -> Color.parseColor("#166534")
-                "L" -> Color.parseColor("#92400E")
-                "E" -> Color.parseColor("#1E40AF")
-                "A" -> Color.parseColor("#991B1B")
-                else -> Color.BLACK
-            })
+            button.setBackgroundColor(
+                when (type) {
+                    "P" -> Color.parseColor("#DCFCE7")
+                    "L" -> Color.parseColor("#FEF3C7")
+                    "E" -> Color.parseColor("#DBEAFE")
+                    "A" -> Color.parseColor("#FEE2E2")
+                    else -> Color.LTGRAY
+                }
+            )
+            button.setTextColor(
+                when (type) {
+                    "P" -> Color.parseColor("#166534")
+                    "L" -> Color.parseColor("#92400E")
+                    "E" -> Color.parseColor("#1E40AF")
+                    "A" -> Color.parseColor("#991B1B")
+                    else -> Color.BLACK
+                }
+            )
             button.strokeWidth = 2
         } else {
             button.setBackgroundColor(Color.TRANSPARENT)

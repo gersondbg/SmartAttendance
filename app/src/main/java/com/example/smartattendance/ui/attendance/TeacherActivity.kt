@@ -143,7 +143,18 @@ class TeacherActivity : AppCompatActivity() {
 
                 val displayList = state.students.values.map {
                     val concentration = if (state.elapsedSeconds > 0) (it.presentSeconds * 100 / state.elapsedSeconds).coerceIn(0, 100) else 0
-                    StudentDisplay(it.id, it.username, it.fullName, it.manualStatus ?: "A", concentration, it.connected, it.isMoving, it.lastSeenAtMillis, it.disconnections)
+                    StudentDisplay(
+                        id = it.id,
+                        username = it.username,
+                        fullName = it.fullName,
+                        status = it.manualStatus ?: if (it.attended) "P" else "A",
+                        attendanceText = if (it.attended) "Asistencia: ASISTIO" else "Asistencia: NO",
+                        presenceText = presenceLabel(it.presenceState),
+                        concentration = concentration,
+                        presenceState = it.presenceState,
+                        lastSeenMillis = it.lastSeenAtMillis,
+                        disconnections = it.disconnections
+                    )
                 }
                 adapter.updateData(displayList)
                 binding.tvPresentCount.text = getString(R.string.students_present, displayList.count { it.status == "P" })
@@ -241,6 +252,17 @@ class TeacherActivity : AppCompatActivity() {
         }.toTypedArray()
         val missing = perms.filter { ActivityCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
         if (missing.isNotEmpty()) ActivityCompat.requestPermissions(this, missing.toTypedArray(), 1001)
+    }
+
+    private fun presenceLabel(state: PresenceState): String {
+        return when (state) {
+            PresenceState.NotSeen -> "NO VISTO"
+            PresenceState.InClass -> "EN AULA"
+            PresenceState.Moving -> "MOVIMIENTO"
+            PresenceState.Restarting -> "REINICIO APP"
+            PresenceState.SignalLost -> "SIN SENAL"
+            PresenceState.Disconnected -> "DESCONECTADO"
+        }
     }
 
     override fun onDestroy() {

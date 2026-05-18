@@ -18,9 +18,22 @@ sealed class TeacherIntent {
     object TogglePause : TeacherIntent()
     object FinishClass : TeacherIntent()
     data class UpdateStudentStatus(val studentId: Int, val status: String) : TeacherIntent()
-    data class OnStudentDiscovered(val username: String, val isMoving: Boolean, val isMaintenanceRestart: Boolean = false) : TeacherIntent()
+    data class OnStudentDiscovered(
+        val username: String,
+        val isMoving: Boolean,
+        val isMaintenanceRestart: Boolean = false
+    ) : TeacherIntent()
     object Tick : TeacherIntent()
     object ResetAttendance : TeacherIntent()
+}
+
+enum class PresenceState {
+    NotSeen,
+    InClass,
+    Moving,
+    Restarting,
+    SignalLost,
+    Disconnected
 }
 
 data class TeacherState(
@@ -40,10 +53,11 @@ data class StudentStats(
     val username: String,
     val fullName: String,
     val email: String,
+    val attended: Boolean = false,
+    val presenceState: PresenceState = PresenceState.NotSeen,
     val presentSeconds: Int = 0,
     val lastSeenAtMillis: Long = 0L,
     val maintenanceUntilMillis: Long = 0L,
-    val connected: Boolean = false,
     val isMoving: Boolean = false,
     val disconnections: Int = 0,
     val manualStatus: String? = null
@@ -57,15 +71,19 @@ sealed class TeacherEffect {
 class TeacherViewModel(
     private val repository: AttendanceRepository = AttendanceRepositoryImpl()
 ) : ViewModel() {
+
     private companion object {
-        private const val BLE_PRESENT_GRACE_MS = 45_000L
-        private const val BLE_DISCONNECT_GRACE_MS = 75_000L
+        private const val SIGNAL_LOST_MS = 4_000L
+        private const val DISCONNECTED_MS = 10_000L
+        private const val RESTART_GRACE_MS = 60_000L
     }
 
-    private val _state = MutableStateFlow(TeacherState(
-        courseName = SessionStore.activeCourseName ?: "Curso",
-        sessionName = SessionStore.activeAttendanceName ?: "Asistencia"
-    ))
+    private val _state = MutableStateFlow(
+        TeacherState(
+            courseName = SessionStore.activeCourseName ?: "Curso",
+            sessionName = SessionStore.activeAttendanceName ?: "Asistencia"
+        )
+    )
     val state: StateFlow<TeacherState> = _state
 
     private val _effect = MutableSharedFlow<TeacherEffect>()
@@ -78,7 +96,11 @@ class TeacherViewModel(
             is TeacherIntent.TogglePause -> _state.value = _state.value.copy(isPaused = !_state.value.isPaused)
             is TeacherIntent.FinishClass -> finishClass()
             is TeacherIntent.UpdateStudentStatus -> handleManualStatusChange(intent.studentId, intent.status)
-            is TeacherIntent.OnStudentDiscovered -> handleStudentDiscovery(intent.username, intent.isMoving, intent.isMaintenanceRestart)
+            is TeacherIntent.OnStudentDiscovered -> handleStudentDiscovery(
+                intent.username,
+                intent.isMoving,
+                intent.isMaintenanceRestart
+            )
             is TeacherIntent.Tick -> handleTick()
             is TeacherIntent.ResetAttendance -> resetAttendance()
         }
@@ -88,11 +110,12 @@ class TeacherViewModel(
         val currentState = _state.value
         val resetStudents = currentState.students.mapValues { (_, stats) ->
             stats.copy(
+                attended = false,
+                presenceState = PresenceState.NotSeen,
                 presentSeconds = 0,
-                connected = false,
                 isMoving = false,
                 disconnections = 0,
-                manualStatus = null,
+                manualStatus = "A",
                 lastSeenAtMillis = 0L,
                 maintenanceUntilMillis = 0L
             )
@@ -110,25 +133,22 @@ class TeacherViewModel(
         _state.value = _state.value.copy(isLoading = true)
         viewModelScope.launch {
             repository.getEnrolledStudents(courseId).onSuccess { list ->
-                android.util.Log.d("TeacherVM", "Estudiantes recibidos de Moodle: ${list.size}")
-                
-                // Mapear y forzar estado inicial "A" (Ausente) para que sean visibles
-                val studentsMap = list.associate { it.id to StudentStats(
-                    id = it.id, 
-                    username = it.username, 
-                    fullName = it.fullname, 
-                    email = it.email,
-                    manualStatus = "A" // Forzamos estado inicial para visualización
-                ) }
-                
+                val studentsMap = list.associate {
+                    it.id to StudentStats(
+                        id = it.id,
+                        username = it.username,
+                        fullName = it.fullname,
+                        email = it.email,
+                        manualStatus = "A"
+                    )
+                }
                 _state.value = _state.value.copy(
-                    isLoading = false, 
+                    isLoading = false,
                     students = studentsMap,
                     courseName = SessionStore.activeCourseName ?: "Curso",
                     sessionName = SessionStore.activeAttendanceName ?: "Asistencia"
                 )
-            }.onFailure { error ->
-                android.util.Log.e("TeacherVM", "Fallo al cargar estudiantes", error)
+            }.onFailure {
                 _state.value = _state.value.copy(isLoading = false)
                 _effect.emit(TeacherEffect.ShowMessage(com.example.smartattendance.R.string.error_loading_data))
             }
@@ -137,14 +157,16 @@ class TeacherViewModel(
 
     private fun startClass(durationMin: Int) {
         val durationSec = durationMin * 60
-        val now = System.currentTimeMillis()
-        val studentsReady = _state.value.students.mapValues { (_, stats) ->
-            val recentlySeen = stats.lastSeenAtMillis > 0 && now - stats.lastSeenAtMillis <= BLE_PRESENT_GRACE_MS
+        val resetForClass = _state.value.students.mapValues { (_, stats) ->
             stats.copy(
-                connected = recentlySeen,
-                manualStatus = if (recentlySeen) "P" else "A",
+                attended = false,
+                presenceState = PresenceState.NotSeen,
                 presentSeconds = 0,
-                disconnections = 0
+                disconnections = 0,
+                manualStatus = "A",
+                lastSeenAtMillis = 0L,
+                maintenanceUntilMillis = 0L,
+                isMoving = false
             )
         }
         _state.value = _state.value.copy(
@@ -153,7 +175,7 @@ class TeacherViewModel(
             initialDurationSeconds = durationSec,
             remainingSeconds = durationSec,
             elapsedSeconds = 0,
-            students = studentsReady
+            students = resetForClass
         )
     }
 
@@ -161,69 +183,85 @@ class TeacherViewModel(
         val currentState = _state.value
         if (!currentState.isClassActive || currentState.isPaused) return
 
-        val newElapsed = currentState.elapsedSeconds + 1
-        val newRemaining = (currentState.remainingSeconds - 1).coerceAtLeast(0)
-        
         val now = System.currentTimeMillis()
         val updatedStudents = currentState.students.mapValues { (_, stats) ->
-            var newStats = stats
-            val msSinceLastSeen = if (stats.lastSeenAtMillis > 0) now - stats.lastSeenAtMillis else Long.MAX_VALUE
-            val inMaintenanceRestart = now <= stats.maintenanceUntilMillis
-            val countedAsPresent = stats.connected || inMaintenanceRestart || msSinceLastSeen <= BLE_PRESENT_GRACE_MS
+            val sinceLastSeen = if (stats.lastSeenAtMillis > 0) now - stats.lastSeenAtMillis else Long.MAX_VALUE
+            val inRestart = now <= stats.maintenanceUntilMillis
 
-            if (!inMaintenanceRestart && stats.lastSeenAtMillis > 0 && msSinceLastSeen > BLE_DISCONNECT_GRACE_MS) {
-                newStats = newStats.copy(
-                    connected = false,
-                    disconnections = if (stats.connected) stats.disconnections + 1 else stats.disconnections
-                )
+            var nextState = stats.presenceState
+            var newDisconnections = stats.disconnections
+
+            if (inRestart) {
+                nextState = PresenceState.Restarting
+            } else if (stats.lastSeenAtMillis == 0L) {
+                nextState = PresenceState.NotSeen
+            } else if (sinceLastSeen > DISCONNECTED_MS) {
+                if (stats.presenceState != PresenceState.Disconnected) {
+                    newDisconnections += 1
+                }
+                nextState = PresenceState.Disconnected
+            } else if (sinceLastSeen > SIGNAL_LOST_MS) {
+                nextState = PresenceState.SignalLost
             }
 
-            if (countedAsPresent && !newStats.isMoving) {
-                newStats = newStats.copy(presentSeconds = newStats.presentSeconds + 1)
-            }
-            newStats
+            val shouldAddConcentration = nextState == PresenceState.InClass
+            stats.copy(
+                presenceState = nextState,
+                disconnections = newDisconnections,
+                presentSeconds = if (shouldAddConcentration) stats.presentSeconds + 1 else stats.presentSeconds
+            )
         }
 
+        val newRemaining = (currentState.remainingSeconds - 1).coerceAtLeast(0)
         _state.value = currentState.copy(
-            elapsedSeconds = newElapsed,
+            elapsedSeconds = currentState.elapsedSeconds + 1,
             remainingSeconds = newRemaining,
             students = updatedStudents,
             isClassActive = newRemaining > 0
         )
-        
+
         if (newRemaining == 0) finishClass()
     }
 
     private fun handleStudentDiscovery(username: String, isMoving: Boolean, isMaintenanceRestart: Boolean) {
         val currentState = _state.value
-        val studentEntry = currentState.students.entries.firstOrNull { it.value.username.equals(username, true) }
-        
-        if (studentEntry != null) {
-            val stats = studentEntry.value
-            val now = System.currentTimeMillis()
-            val updatedStats = stats.copy(
-                lastSeenAtMillis = now,
-                maintenanceUntilMillis = if (isMaintenanceRestart) now + BLE_DISCONNECT_GRACE_MS else stats.maintenanceUntilMillis,
-                connected = true,
-                isMoving = isMoving,
-                manualStatus = if (currentState.isClassActive && (stats.manualStatus == null || stats.manualStatus == "A")) "P" else stats.manualStatus
-            )
-            val updatedStudents = currentState.students.toMutableMap()
-            updatedStudents[studentEntry.key] = updatedStats
-            _state.value = currentState.copy(students = updatedStudents)
+        val studentEntry = currentState.students.entries.firstOrNull {
+            it.value.username.equals(username, ignoreCase = true)
+        } ?: return
+
+        val now = System.currentTimeMillis()
+        val stats = studentEntry.value
+        val attended = currentState.isClassActive || stats.attended
+        val presenceState = when {
+            isMaintenanceRestart -> PresenceState.Restarting
+            isMoving -> PresenceState.Moving
+            else -> PresenceState.InClass
         }
+        val updatedStats = stats.copy(
+            attended = attended,
+            manualStatus = if (attended) "P" else stats.manualStatus,
+            presenceState = presenceState,
+            lastSeenAtMillis = now,
+            maintenanceUntilMillis = if (isMaintenanceRestart) now + RESTART_GRACE_MS else stats.maintenanceUntilMillis,
+            isMoving = isMoving
+        )
+
+        val updatedStudents = currentState.students.toMutableMap()
+        updatedStudents[studentEntry.key] = updatedStats
+        _state.value = currentState.copy(students = updatedStudents)
     }
 
     private fun handleManualStatusChange(studentId: Int, newStatus: String) {
         val currentState = _state.value
         val stats = currentState.students[studentId] ?: return
-        val updatedStats = stats.copy(manualStatus = newStatus)
+        val updatedStats = stats.copy(
+            manualStatus = newStatus,
+            attended = newStatus == "P" || stats.attended
+        )
         val updatedStudents = currentState.students.toMutableMap()
         updatedStudents[studentId] = updatedStats
-        
         _state.value = currentState.copy(students = updatedStudents)
-            
-        // Background sync of manual changes
+
         SessionStore.activeSessionId?.let { sid ->
             viewModelScope.launch { repository.markAttendance(sid, studentId, newStatus) }
         }
@@ -232,24 +270,25 @@ class TeacherViewModel(
     private fun finishClass() {
         val currentState = _state.value
         _state.value = currentState.copy(isClassActive = false)
-        
+
         val summaryList = currentState.students.values.map {
-            val conc = if (currentState.elapsedSeconds > 0) 
-                (it.presentSeconds * 100 / currentState.elapsedSeconds).coerceIn(0, 100) 
-                else 0
-            val finalStatus = it.manualStatus ?: if (it.connected) "P" else "A"
+            val concentration = if (currentState.elapsedSeconds > 0) {
+                (it.presentSeconds * 100 / currentState.elapsedSeconds).coerceIn(0, 100)
+            } else {
+                0
+            }
+            val finalStatus = it.manualStatus ?: if (it.attended) "P" else "A"
             StudentSummary(
                 id = it.id,
                 fullName = it.fullName,
                 username = it.username,
                 status = finalStatus,
-                concentration = conc,
+                concentration = concentration,
                 presentSeconds = it.presentSeconds
             )
         }
-        
+
         viewModelScope.launch {
-            // Sincronización masiva final con Moodle
             SessionStore.activeSessionId?.let { sid ->
                 summaryList.forEach { student ->
                     repository.markAttendance(sid, student.id, student.status)
