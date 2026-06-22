@@ -72,9 +72,11 @@ interface MoodleApiService {
         @Field("wsfunction") function: String = "mod_attendance_add_session",
         @Field("moodlewsrestformat") format: String = "json",
         @Field("attendanceid") attendanceId: Int,
-        @Field("sessdate") sessDate: Long,
+        @Field("sessiontime") sessDate: Long,
         @Field("duration") duration: Int = 3600,
-        @Field("description") description: String = "Sesión creada desde App"
+        @Field("description") description: String = "Sesión creada desde App",
+        @Field("groupid") groupId: Int = 0,
+        @Field("addcalendarevent") addCalendarEvent: Int = 1
     ): JsonElement
 
     @POST("webservice/rest/server.php")
@@ -99,3 +101,4 @@ interface MoodleApiService {
         @Field("sessionid") sessionId: Int
     ): JsonElement
 }
+

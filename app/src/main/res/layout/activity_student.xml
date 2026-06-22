@@ -32,6 +32,16 @@
         android:textStyle="bold" />
 
     <TextView
+        android:id="@+id/tvCourseName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Curso no seleccionado"
+        android:textColor="#3B82F6"
+        android:textSize="16sp"
+        android:layout_marginTop="4dp"
+        android:textStyle="bold" />
+
+    <TextView
         android:id="@+id/tvStatus"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

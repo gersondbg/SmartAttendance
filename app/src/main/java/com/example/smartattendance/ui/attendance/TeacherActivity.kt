@@ -65,7 +65,8 @@ class TeacherActivity : AppCompatActivity() {
             if (username.isBlank()) return
             val isMoving = intent.getBooleanExtra(TeacherClassSessionService.EXTRA_MOVING, false)
             val isRestart = intent.getBooleanExtra(TeacherClassSessionService.EXTRA_RESTART, false)
-            viewModel.onIntent(TeacherIntent.OnStudentDiscovered(username, isMoving, isRestart))
+            val rssi = intent.getIntExtra(TeacherClassSessionService.EXTRA_RSSI, -100)
+            viewModel.onIntent(TeacherIntent.OnStudentDiscovered(username, isMoving, isRestart, rssi))
         }
     }
 
@@ -106,15 +107,23 @@ class TeacherActivity : AppCompatActivity() {
         val teacherName = intent.getStringExtra("USER_NAME") ?: "Profesor"
         binding.tvWelcome.text = getString(R.string.hello_user, teacherName)
         
-        binding.btnStart.setOnClickListener { 
-            val duration = binding.etDuration.text.toString().toIntOrNull() ?: 60
-            viewModel.onIntent(TeacherIntent.StartClass(duration))
+        binding.btnStart.setOnClickListener {
+            val dur = binding.etDuration.text.toString().toIntOrNull() ?: 60
+            viewModel.onIntent(TeacherIntent.StartClass(dur))
             TeacherClassSessionService.start(this)
+            
+            // Deshabilitar el slider durante la clase
+            binding.sliderDistance.isEnabled = false
+            
             tickHandler.post(tickRunnable)
             scanHandler.post(autoScanRunnable)
         }
-        
         binding.btnPause.setOnClickListener { viewModel.onIntent(TeacherIntent.TogglePause) }
+
+        binding.sliderDistance.addOnChangeListener { _, value, _ ->
+            binding.tvDistanceLabel.text = "Radio de Detección: ${value.toInt()} metros"
+            viewModel.setMaxDetectionMeters(value.toInt())
+        }
         binding.btnFinish.setOnClickListener { viewModel.onIntent(TeacherIntent.FinishClass) }
         binding.btnLogout.setOnClickListener { if (viewModel.state.value.isClassActive) viewModel.onIntent(TeacherIntent.FinishClass); finish() }
         binding.btnScan.setOnClickListener { refreshBleScan() }
@@ -153,7 +162,8 @@ class TeacherActivity : AppCompatActivity() {
                         concentration = concentration,
                         presenceState = it.presenceState,
                         lastSeenMillis = it.lastSeenAtMillis,
-                        disconnections = it.disconnections
+                        disconnections = it.disconnections,
+                        signalStrength = if (it.presenceState == PresenceState.NotSeen || it.presenceState == PresenceState.Disconnected || it.presenceState == PresenceState.SignalLost) "--" else getSignalStrengthText(it.lastSeenRssi)
                     )
                 }
                 adapter.updateData(displayList)
@@ -273,6 +283,14 @@ class TeacherActivity : AppCompatActivity() {
         try {
             unregisterReceiver(serviceDetectionReceiver)
         } catch (_: Exception) {
+        }
+    }
+
+    private fun getSignalStrengthText(rssi: Int): String {
+        return when {
+            rssi > -60 -> "Fuerte"
+            rssi > -80 -> "Media"
+            else -> "Débil"
         }
     }
 }

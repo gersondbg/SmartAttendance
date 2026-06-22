@@ -120,6 +120,7 @@ class TeacherClassSessionService : Service() {
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
             val data = result?.scanRecord?.getServiceData(smartUuid) ?: return
+            val rssi = result.rssi
             val deviceName = String(data, Charsets.UTF_8)
             val username = deviceName.substringAfter("-").trim()
             if (username.isBlank()) return
@@ -128,6 +129,7 @@ class TeacherClassSessionService : Service() {
                 .putExtra(EXTRA_USERNAME, username)
                 .putExtra(EXTRA_MOVING, deviceName.contains("MV-"))
                 .putExtra(EXTRA_RESTART, deviceName.contains("RS-"))
+                .putExtra(EXTRA_RSSI, rssi)
             sendBroadcast(intent)
         }
     }
@@ -185,6 +187,7 @@ class TeacherClassSessionService : Service() {
         const val EXTRA_USERNAME = "username"
         const val EXTRA_MOVING = "moving"
         const val EXTRA_RESTART = "restart"
+        const val EXTRA_RSSI = "rssi"
 
         fun start(context: Context) {
             val i = Intent(context, TeacherClassSessionService::class.java).setAction(ACTION_START)

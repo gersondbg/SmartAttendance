@@ -17,7 +17,8 @@ data class StudentDisplay(
     val concentration: Int,
     val presenceState: PresenceState,
     val lastSeenMillis: Long,
-    val disconnections: Int
+    val disconnections: Int,
+    val signalStrength: String
 )
 
 class StudentAdapter(
@@ -44,6 +45,7 @@ class StudentAdapter(
                 "A" -> "NO ASISTIO"
                 else -> "NO ASISTIO"
             }
+            tvSignalStrength.text = "Señal: ${student.signalStrength}"
 
             viewStatusIndicator.backgroundTintList = ColorStateList.valueOf(
                 when (student.presenceState) {

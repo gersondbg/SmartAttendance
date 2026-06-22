@@ -88,6 +88,8 @@ class StudentActivity : AppCompatActivity(), SensorEventListener {
         tryAutoStartPresence()
     }
 
+
+
     private fun observeViewModel() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -193,6 +195,9 @@ class StudentActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun setupUI() {
+        val courseName = com.example.smartattendance.data.remote.SessionStore.activeCourseName ?: "General"
+        binding.tvCourseName.text = "Curso: $courseName"
+
         binding.btnActivate.setOnClickListener {
             activatePresenceOrWarn()
         }

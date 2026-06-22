@@ -15,7 +15,7 @@ class AttendanceRepositoryImpl(
 ) : AttendanceRepository {
 
     private companion object {
-        private const val MANUAL_ATTENDANCE_TOKEN = "fd6e1a6b6987e5f67ec7f60d2780097c"
+        private const val MANUAL_ATTENDANCE_TOKEN = "9f790960f4ce4b7a27cb3e671a85bebd"
     }
 
     override suspend fun login(email: String, password: String): Result<User> {
@@ -294,3 +294,4 @@ class AttendanceRepositoryImpl(
     private fun demoSessions() = listOf(AttendanceSession(1, System.currentTimeMillis() / 1000, "Sesion de Prueba"))
     private fun demoStudents() = listOf(User(1, "messi", "Lionel Messi", "leo@smart.com", "student"))
 }
+

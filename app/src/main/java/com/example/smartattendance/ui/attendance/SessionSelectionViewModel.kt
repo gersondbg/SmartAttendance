@@ -107,7 +107,7 @@ class SessionSelectionViewModel(
                     _state.value = _state.value.copy(isLoading = false, items = items)
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(isLoading = false)
+                    _state.value = _state.value.copy(isLoading = false, items = emptyList())
                     _effect.emit(SessionSelectionEffect.ShowError(error.message ?: "Error desconocido"))
                 }
         }

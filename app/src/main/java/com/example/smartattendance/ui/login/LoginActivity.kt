@@ -22,6 +22,17 @@ class LoginActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        if (SessionStore.moodleToken != null && SessionStore.currentUserId != null) {
+            val intent = Intent(this, CourseSelectionActivity::class.java)
+            intent.putExtra("USER_NAME", SessionStore.currentUserName ?: "")
+            intent.putExtra("USER_USERNAME", SessionStore.currentUserUsername ?: "")
+            intent.putExtra("USER_ID", SessionStore.currentUserId ?: -1)
+            startActivity(intent)
+            finish()
+            return
+        }
+
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
         
@@ -79,12 +90,10 @@ class LoginActivity : AppCompatActivity() {
         // Guardar en SessionStore (esto podría ser parte de un UseCase, pero lo mantenemos aquí por simplicidad)
         SessionStore.currentUserId = user.id
         SessionStore.currentUserRole = user.role
+        SessionStore.currentUserName = user.fullname
+        SessionStore.currentUserUsername = user.username
 
-        val intent = if (user.role == "teacher") {
-            Intent(this, CourseSelectionActivity::class.java)
-        } else {
-            Intent(this, StudentActivity::class.java)
-        }
+        val intent = Intent(this, CourseSelectionActivity::class.java)
         intent.putExtra("USER_NAME", user.fullname)
         intent.putExtra("USER_USERNAME", user.username)
         intent.putExtra("USER_ID", user.id)

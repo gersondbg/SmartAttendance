@@ -52,6 +52,38 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="8dp">
+
+        <TextView
+            android:id="@+id/tvDistanceLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Radio de Detección: 15 metros (Sin límite)"
+            android:textColor="#333333"
+            android:textStyle="bold"/>
+
+        <com.google.android.material.slider.Slider
+            android:id="@+id/sliderDistance"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:valueFrom="1.0"
+            android:valueTo="15.0"
+            android:stepSize="1.0"
+            android:value="15.0" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Nota: Si el celular del alumno está cubierto (bolsillo o mochila), la señal se debilitará y parecerá estar más lejos."
+            android:textSize="12sp"
+            android:textColor="#757575"
+            android:layout_marginBottom="8dp"/>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:layout_marginTop="8dp">
         <Button android:id="@+id/btnStart" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/btn_start" android:backgroundTint="#4CAF50"/>

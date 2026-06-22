@@ -67,6 +67,19 @@ class SessionSelectionActivity : AppCompatActivity() {
                 binding.tvSelectionContext.text = getString(state.titleRes)
                 binding.btnCreateSession.visibility = if (state.showCreateButton) View.VISIBLE else View.GONE
                 adapter.updateData(state.items)
+                
+                if (!state.isLoading && state.items.isEmpty()) {
+                    binding.tvEmptyState.visibility = View.VISIBLE
+                    binding.rvSelection.visibility = View.GONE
+                    binding.tvEmptyState.text = if (state.isSelectingModule) {
+                        "No se encontraron módulos de Asistencia en este curso."
+                    } else {
+                        "No hay sesiones programadas en este módulo."
+                    }
+                } else {
+                    binding.tvEmptyState.visibility = View.GONE
+                    binding.rvSelection.visibility = View.VISIBLE
+                }
             }
         }
 

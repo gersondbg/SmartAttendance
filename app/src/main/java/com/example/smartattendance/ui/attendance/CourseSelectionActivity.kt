@@ -32,8 +32,10 @@ class CourseSelectionActivity : AppCompatActivity() {
     }
 
     private fun setupUI() {
-        val teacherName = intent.getStringExtra("USER_NAME") ?: getString(R.string.unspecified)
-        binding.tvWelcomeTeacher.text = getString(R.string.hello_user, teacherName)
+        val userName = intent.getStringExtra("USER_NAME") ?: getString(R.string.unspecified)
+        val userRole = SessionStore.currentUserRole ?: "student"
+        val roleName = if (userRole == "teacher") "Profesor" else "Alumno"
+        binding.tvWelcomeTeacher.text = "Hola, $roleName $userName"
 
         adapter = CourseAdapter(emptyList()) { course ->
             viewModel.onIntent(CourseSelectionIntent.SelectCourse(course))
@@ -63,10 +65,21 @@ class CourseSelectionActivity : AppCompatActivity() {
                     is CourseSelectionEffect.NavigateToSessions -> {
                         SessionStore.activeCourseId = effect.course.id
                         SessionStore.activeCourseName = effect.course.fullname
-                        val teacherName = intent.getStringExtra("USER_NAME") ?: "Profesor"
-                        val intent = Intent(this@CourseSelectionActivity, SessionSelectionActivity::class.java)
-                        intent.putExtra("USER_NAME", teacherName)
-                        startActivity(intent)
+                        
+                        val userName = intent.getStringExtra("USER_NAME") ?: "Usuario"
+                        val userUsername = intent.getStringExtra("USER_USERNAME") ?: userName
+                        
+                        val userRole = SessionStore.currentUserRole ?: "student"
+                        if (userRole == "teacher") {
+                            val intent = Intent(this@CourseSelectionActivity, SessionSelectionActivity::class.java)
+                            intent.putExtra("USER_NAME", userName)
+                            startActivity(intent)
+                        } else {
+                            val intent = Intent(this@CourseSelectionActivity, StudentActivity::class.java)
+                            intent.putExtra("USER_NAME", userName)
+                            intent.putExtra("USER_USERNAME", userUsername)
+                            startActivity(intent)
+                        }
                     }
                     is CourseSelectionEffect.ShowError -> {
                         Toast.makeText(this@CourseSelectionActivity, effect.message, Toast.LENGTH_LONG).show()

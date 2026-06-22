@@ -21,7 +21,8 @@ sealed class TeacherIntent {
     data class OnStudentDiscovered(
         val username: String,
         val isMoving: Boolean,
-        val isMaintenanceRestart: Boolean = false
+        val isMaintenanceRestart: Boolean = false,
+        val rssi: Int = -100
     ) : TeacherIntent()
     object Tick : TeacherIntent()
     object ResetAttendance : TeacherIntent()
@@ -60,7 +61,8 @@ data class StudentStats(
     val maintenanceUntilMillis: Long = 0L,
     val isMoving: Boolean = false,
     val disconnections: Int = 0,
-    val manualStatus: String? = null
+    val manualStatus: String? = null,
+    val lastSeenRssi: Int = -100
 )
 
 sealed class TeacherEffect {
@@ -99,7 +101,8 @@ class TeacherViewModel(
             is TeacherIntent.OnStudentDiscovered -> handleStudentDiscovery(
                 intent.username,
                 intent.isMoving,
-                intent.isMaintenanceRestart
+                intent.isMaintenanceRestart,
+                intent.rssi
             )
             is TeacherIntent.Tick -> handleTick()
             is TeacherIntent.ResetAttendance -> resetAttendance()
@@ -222,12 +225,42 @@ class TeacherViewModel(
 
         if (newRemaining == 0) finishClass()
     }
+    
+    private var maxDetectionMeters: Int = 15
+    
+    fun setMaxDetectionMeters(meters: Int) {
+        maxDetectionMeters = meters
+    }
+    
+    private fun getRssiCutoff(meters: Int): Int {
+        // Approximate formula: 1m = -50, 5m = -70, 15m = -90
+        return when {
+            meters <= 2 -> -60
+            meters <= 5 -> -70
+            meters <= 10 -> -80
+            else -> -95
+        }
+    }
+    
+    private fun getSignalStrengthText(rssi: Int): String {
+        return when {
+            rssi > -60 -> "Fuerte"
+            rssi > -80 -> "Media"
+            else -> "Débil"
+        }
+    }
 
-    private fun handleStudentDiscovery(username: String, isMoving: Boolean, isMaintenanceRestart: Boolean) {
+    private fun handleStudentDiscovery(username: String, isMoving: Boolean, isMaintenanceRestart: Boolean, rssi: Int) {
         val currentState = _state.value
         val studentEntry = currentState.students.entries.firstOrNull {
             it.value.username.equals(username, ignoreCase = true)
         } ?: return
+        
+        val cutoff = getRssiCutoff(maxDetectionMeters)
+        if (rssi < cutoff) {
+            // Signal is too weak, student is outside the selected range. Ignore packet.
+            return
+        }
 
         val now = System.currentTimeMillis()
         val stats = studentEntry.value
@@ -243,7 +276,8 @@ class TeacherViewModel(
             presenceState = presenceState,
             lastSeenAtMillis = now,
             maintenanceUntilMillis = if (isMaintenanceRestart) now + RESTART_GRACE_MS else stats.maintenanceUntilMillis,
-            isMoving = isMoving
+            isMoving = isMoving,
+            lastSeenRssi = rssi
         )
 
         val updatedStudents = currentState.students.toMutableMap()
