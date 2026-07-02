@@ -8,5 +8,8 @@ data class StudentSummary(
     val username: String,
     val status: String,
     val concentration: Int,
-    val presentSeconds: Int
+    val presentSeconds: Int,
+    val presenceFinal: String = "NO VISTO",
+    val disconnections: Int = 0,
+    val moodleSynced: Boolean = false
 ) : Serializable

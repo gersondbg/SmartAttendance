@@ -112,7 +112,6 @@ class TeacherActivity : AppCompatActivity() {
             viewModel.onIntent(TeacherIntent.StartClass(dur))
             TeacherClassSessionService.start(this)
             
-            // Deshabilitar el slider durante la clase
             binding.sliderDistance.isEnabled = false
             
             tickHandler.post(tickRunnable)
@@ -121,12 +120,15 @@ class TeacherActivity : AppCompatActivity() {
         binding.btnPause.setOnClickListener { viewModel.onIntent(TeacherIntent.TogglePause) }
 
         binding.sliderDistance.addOnChangeListener { _, value, _ ->
-            binding.tvDistanceLabel.text = "Radio de Detección: ${value.toInt()} metros"
+            binding.tvDistanceLabel.text = "Radio de DetecciÃƒÂ³n: ${value.toInt()} metros"
             viewModel.setMaxDetectionMeters(value.toInt())
         }
         binding.btnFinish.setOnClickListener { viewModel.onIntent(TeacherIntent.FinishClass) }
         binding.btnLogout.setOnClickListener { if (viewModel.state.value.isClassActive) viewModel.onIntent(TeacherIntent.FinishClass); finish() }
         binding.btnScan.setOnClickListener { refreshBleScan() }
+        binding.btnDashboard.setOnClickListener {
+            startActivity(Intent(this, TeacherDashboardActivity::class.java))
+        }
         binding.btnSummary.setOnClickListener { viewModel.onIntent(TeacherIntent.FinishClass) }
         
         binding.tvPresentCount.setOnLongClickListener {
@@ -168,7 +170,6 @@ class TeacherActivity : AppCompatActivity() {
                 }
                 adapter.updateData(displayList)
                 binding.tvPresentCount.text = getString(R.string.students_present, displayList.count { it.status == "P" })
-                binding.progressBar.visibility = if (state.isLoading) View.VISIBLE else View.GONE
                 
                 // Update Notifications and ensure robustness
                 val avgConcentration = if (displayList.isNotEmpty()) displayList.map { it.concentration }.average().toInt() else 0

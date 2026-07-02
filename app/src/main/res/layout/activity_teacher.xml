@@ -126,6 +126,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal">
         <Button android:id="@+id/btnScan" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/btn_scan"/>
+        <Button android:id="@+id/btnDashboard" android:layout_width="0dp" android:layout_weight="1.2" android:layout_height="wrap_content" android:text="DASHBOARD" android:backgroundTint="#1565C0"/>
         <Button android:id="@+id/btnSummary" android:layout_width="0dp" android:layout_weight="1.5" android:layout_height="wrap_content" android:text="@string/btn_summary" android:backgroundTint="#673AB7"/>
         <Button android:id="@+id/btnLogout" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/btn_exit"/>
     </LinearLayout>

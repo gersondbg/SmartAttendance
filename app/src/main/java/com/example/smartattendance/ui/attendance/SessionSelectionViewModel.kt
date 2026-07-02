@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.util.TimeZone
 
 sealed class SessionSelectionIntent {
     data class LoadModules(val courseId: Int) : SessionSelectionIntent()
@@ -100,7 +101,8 @@ class SessionSelectionViewModel(
         viewModelScope.launch {
             repository.getSessions(attendanceId)
                 .onSuccess { sessions ->
-                    val sdf = java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", java.util.Locale.getDefault())
+                    val sdf = java.text.SimpleDateFormat("dd MMM yyyy, HH:mm 'Lima'", java.util.Locale("es", "PE"))
+                    sdf.timeZone = TimeZone.getTimeZone("America/Lima")
                     val items = sessions.map { 
                         GenericSelectionAdapter.SelectionItem(it.id, sdf.format(java.util.Date(it.date * 1000)), it.description)
                     }

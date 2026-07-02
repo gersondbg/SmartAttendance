@@ -10,7 +10,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import java.util.Locale
-import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -72,16 +71,30 @@ class SummaryActivity : AppCompatActivity() {
             viewModel.state.collect { state ->
                 val minutes = state.totalTime / 60
                 val seconds = state.totalTime % 60
-                binding.tvClassStats.text = getString(R.string.summary_stats, state.courseName, minutes, seconds, state.summaryList.size)
-                
-                if (state.summaryList.isEmpty()) {
-                    binding.lvSummaryStudents.adapter = ArrayAdapter(this@SummaryActivity, android.R.layout.simple_list_item_1, listOf(getString(R.string.no_session_data)))
+                binding.tvClassStats.text = "Curso: ${state.courseName}\nDuracion efectiva: ${String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)}\n${state.summaryList.size} alumnos evaluados"
+
+                val attended = state.summaryList.count { it.status == "P" }
+                val averageConc = if (state.summaryList.isNotEmpty()) state.summaryList.map { it.concentration }.average().toInt() else 0
+                val totalCuts = state.summaryList.sumOf { it.disconnections }
+                val synced = state.summaryList.count { it.moodleSynced }
+
+                binding.tvAttendanceMetric.text = "Asistencia\n$attended/${state.summaryList.size}"
+                binding.tvConcentrationMetric.text = "Concentracion\n$averageConc%"
+                binding.tvMoodleMetric.text = "Moodle: $synced/${state.summaryList.size} alumnos sincronizados | Cortes totales: $totalCuts"
+
+                binding.tvSummaryStudents.text = if (state.summaryList.isEmpty()) {
+                    getString(R.string.no_session_data)
                 } else {
-                    val displayStrings = state.summaryList.map { 
-                        getString(R.string.student_summary_item, it.fullName, it.username, it.status, it.concentration)
+                    state.summaryList.joinToString("\n\n") { student ->
+                        val attendance = if (student.status == "P") "ASISTIO" else "NO ASISTIO"
+                        val time = formatSeconds(student.presentSeconds)
+                        val moodle = if (student.moodleSynced) "OK" else "PENDIENTE"
+                        "${student.fullName} (${student.username})\n" +
+                            "Asistencia Moodle: $attendance (${student.status})\n" +
+                            "Presencia final: ${student.presenceFinal}\n" +
+                            "Concentracion: ${student.concentration}% | Tiempo presente: $time\n" +
+                            "Cortes de senal: ${student.disconnections} | Moodle: $moodle"
                     }
-                    val adapter = ArrayAdapter(this@SummaryActivity, android.R.layout.simple_list_item_1, displayStrings)
-                    binding.lvSummaryStudents.adapter = adapter
                 }
 
                 binding.btnSyncMoodle.isEnabled = !state.isSyncing && !state.syncSuccess
@@ -105,7 +118,11 @@ class SummaryActivity : AppCompatActivity() {
             }
         }
     }
-
+    private fun formatSeconds(seconds: Int): String {
+        val minutes = seconds / 60
+        val rest = seconds % 60
+        return String.format(Locale.getDefault(), "%02d:%02d", minutes, rest)
+    }
     private fun generateAndSharePdf() {
         val state = viewModel.state.value
         val summaryList = state.summaryList
@@ -118,36 +135,69 @@ class SummaryActivity : AppCompatActivity() {
         val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
         val page = pdfDocument.startPage(pageInfo)
         val canvas = page.canvas
-        val paint = Paint()
+        val linePaint = Paint().apply { color = android.graphics.Color.rgb(203, 213, 225) }
         val titlePaint = Paint().apply {
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             textSize = 18f
+            color = android.graphics.Color.rgb(30, 58, 138)
+        }
+        val subtitlePaint = Paint().apply {
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textSize = 11f
+            color = android.graphics.Color.rgb(15, 23, 42)
         }
         val textPaint = Paint().apply {
-            textSize = 12f
+            textSize = 9.5f
+            color = android.graphics.Color.rgb(51, 65, 85)
         }
 
-        var y = 40f
-        canvas.drawText(getString(R.string.report_title), 50f, y, titlePaint)
-        y += 30f
-        canvas.drawText(getString(R.string.report_course, state.courseName), 50f, y, textPaint)
-        y += 20f
-        canvas.drawText(getString(R.string.report_date, SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())), 50f, y, textPaint)
-        y += 10f
-        canvas.drawLine(50f, y, 545f, y, paint)
-        y += 30f
+        val attended = summaryList.count { it.status == "P" }
+        val averageConc = summaryList.map { it.concentration }.average().toInt()
+        val totalCuts = summaryList.sumOf { it.disconnections }
+        val synced = summaryList.count { it.moodleSynced }
 
-        // Table Header
-        canvas.drawText(getString(R.string.header_student), 50f, y, titlePaint)
-        canvas.drawText(getString(R.string.header_status), 350f, y, titlePaint)
-        canvas.drawText(getString(R.string.header_concentration).replace("%%", "%"), 450f, y, titlePaint)
+        var y = 38f
+        canvas.drawText("INFORME FINAL - SMART ATTENDANCE", 40f, y, titlePaint)
+        y += 22f
+        canvas.drawText("Curso: ${state.courseName}", 40f, y, textPaint)
+        y += 15f
+        canvas.drawText("Fecha: ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())}", 40f, y, textPaint)
+        y += 15f
+        canvas.drawText("Duracion efectiva: ${formatSeconds(state.totalTime)} | Alumnos: ${summaryList.size}", 40f, y, textPaint)
+        y += 18f
+        canvas.drawText("Asistencia: $attended/${summaryList.size} | Concentracion promedio: $averageConc% | Cortes: $totalCuts | Moodle: $synced/${summaryList.size}", 40f, y, subtitlePaint)
+        y += 18f
+        canvas.drawText("Criterio: un alumno asiste si fue detectado por Bluetooth BLE durante la clase activa.", 40f, y, textPaint)
+        y += 13f
+        canvas.drawText("La concentracion mide permanencia estable; los cortes indican perdidas de senal.", 40f, y, textPaint)
         y += 20f
+        canvas.drawLine(40f, y, 555f, y, linePaint)
+        y += 18f
+
+        canvas.drawText("Alumno", 40f, y, subtitlePaint)
+        canvas.drawText("Asist.", 190f, y, subtitlePaint)
+        canvas.drawText("Presencia final", 250f, y, subtitlePaint)
+        canvas.drawText("Conc.", 370f, y, subtitlePaint)
+        canvas.drawText("Tiempo", 420f, y, subtitlePaint)
+        canvas.drawText("Cortes", 475f, y, subtitlePaint)
+        canvas.drawText("Moodle", 525f, y, subtitlePaint)
+        y += 12f
+        canvas.drawLine(40f, y, 555f, y, linePaint)
+        y += 16f
 
         summaryList.forEach { student ->
-            canvas.drawText(student.fullName, 50f, y, textPaint)
-            canvas.drawText(student.status, 350f, y, textPaint)
-            canvas.drawText("${student.concentration}%", 450f, y, textPaint)
-            y += 20f
+            if (y > 810f) return@forEach
+            val name = student.fullName.take(25)
+            val attendance = if (student.status == "P") "SI" else "NO"
+            val moodle = if (student.moodleSynced) "OK" else "PEND"
+            canvas.drawText(name, 40f, y, textPaint)
+            canvas.drawText(attendance, 190f, y, textPaint)
+            canvas.drawText(student.presenceFinal.take(16), 250f, y, textPaint)
+            canvas.drawText("${student.concentration}%", 370f, y, textPaint)
+            canvas.drawText(formatSeconds(student.presentSeconds), 420f, y, textPaint)
+            canvas.drawText(student.disconnections.toString(), 485f, y, textPaint)
+            canvas.drawText(moodle, 525f, y, textPaint)
+            y += 18f
         }
 
         pdfDocument.finishPage(page)
@@ -166,7 +216,6 @@ class SummaryActivity : AppCompatActivity() {
             pdfDocument.close()
         }
     }
-
     private fun shareFile(file: File) {
         val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
         val intent = Intent(Intent.ACTION_SEND).apply {

@@ -107,6 +107,7 @@ class TeacherViewModel(
             is TeacherIntent.Tick -> handleTick()
             is TeacherIntent.ResetAttendance -> resetAttendance()
         }
+        AttendanceEventBus.updateFromTeacherState(_state.value)
     }
 
     private fun resetAttendance() {
@@ -129,6 +130,7 @@ class TeacherViewModel(
             students = resetStudents,
             isPaused = false
         )
+        AttendanceEventBus.publish(AttendanceEvent("RESET", "Asistencia reiniciada", "El profesor reinicio los estados de la clase."))
     }
 
     private fun loadInitialData() {
@@ -180,6 +182,7 @@ class TeacherViewModel(
             elapsedSeconds = 0,
             students = resetForClass
         )
+        AttendanceEventBus.publish(AttendanceEvent("CLASS_STARTED", "Clase iniciada", "Duracion programada: $durationMin minutos."))
     }
 
     private fun handleTick() {
@@ -246,7 +249,7 @@ class TeacherViewModel(
         return when {
             rssi > -60 -> "Fuerte"
             rssi > -80 -> "Media"
-            else -> "Débil"
+            else -> "DÃ©bil"
         }
     }
 
@@ -283,6 +286,13 @@ class TeacherViewModel(
         val updatedStudents = currentState.students.toMutableMap()
         updatedStudents[studentEntry.key] = updatedStats
         _state.value = currentState.copy(students = updatedStudents)
+        val eventTitle = when (presenceState) {
+            PresenceState.InClass -> "Alumno detectado"
+            PresenceState.Moving -> "Alumno en movimiento"
+            PresenceState.Restarting -> "Reinicio tecnico"
+            else -> "Cambio de presencia"
+        }
+        AttendanceEventBus.publish(AttendanceEvent("PRESENCE", eventTitle, "${updatedStats.fullName}: ${presenceState.name} / RSSI $rssi"))
     }
 
     private fun handleManualStatusChange(studentId: Int, newStatus: String) {
@@ -301,9 +311,21 @@ class TeacherViewModel(
         }
     }
 
+    private fun presenceLabel(state: PresenceState): String {
+        return when (state) {
+            PresenceState.NotSeen -> "NO VISTO"
+            PresenceState.InClass -> "EN AULA"
+            PresenceState.Moving -> "MOVIMIENTO"
+            PresenceState.Restarting -> "REINICIO APP"
+            PresenceState.SignalLost -> "SIN SE?AL"
+            PresenceState.Disconnected -> "DESCONECTADO"
+        }
+    }
+
     private fun finishClass() {
         val currentState = _state.value
         _state.value = currentState.copy(isClassActive = false)
+        AttendanceEventBus.publish(AttendanceEvent("CLASS_FINISHED", "Clase finalizada", "Se genero el resumen y se sincronizara con Moodle."))
 
         val summaryList = currentState.students.values.map {
             val concentration = if (currentState.elapsedSeconds > 0) {

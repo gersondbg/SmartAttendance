@@ -76,7 +76,10 @@ class SummaryViewModel(
                 repository.markAttendance(sessionId, student.id, student.status)
                     .onSuccess {
                         successCount++
-                        _state.value = _state.value.copy(syncProgress = successCount)
+                        val updated = _state.value.summaryList.map {
+                            if (it.id == student.id) it.copy(moodleSynced = true) else it
+                        }
+                        _state.value = _state.value.copy(summaryList = updated, syncProgress = successCount)
                     }
                     .onFailure { error ->
                         errors.add("${student.fullName}: ${error.message ?: "Error Moodle"}")
@@ -87,7 +90,7 @@ class SummaryViewModel(
             _state.value = _state.value.copy(isSyncing = false, syncSuccess = allSynced)
 
             val message = if (allSynced) {
-                "Sincronizacion automatica completa"
+                "Sincronizacion automatica completa en Moodle"
             } else {
                 val firstError = errors.firstOrNull() ?: "Moodle rechazo la sincronizacion"
                 "Sincronizados $successCount de ${list.size}. $firstError"
