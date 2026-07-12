@@ -2,67 +2,74 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="#F6F8FC"
     android:orientation="vertical"
-    android:padding="16dp"
-    android:background="#F3F4F6">
+    android:padding="16dp">
 
     <TextView
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Sincronizando con Moodle"
+        android:textColor="#0F172A"
         android:textSize="20sp"
-        android:textStyle="bold"
-        android:textColor="#1E293B"/>
+        android:textStyle="bold" />
 
     <TextView
         android:id="@+id/tvSelectionContext"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Selecciona la sesión de hoy"
-        android:textColor="#64748B"
-        android:layout_marginBottom="16dp"/>
+        android:layout_marginBottom="16dp"
+        android:text="Selecciona la sesion de hoy"
+        android:textColor="#64748B" />
 
     <ProgressBar
         android:id="@+id/pbLoading"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:visibility="gone"/>
+        android:visibility="gone" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvSelection"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"/>
+        android:layout_weight="1" />
 
     <TextView
         android:id="@+id/tvEmptyState"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:text="No se encontraron módulos de asistencia en este curso."
         android:gravity="center"
+        android:text="No se encontraron modulos de asistencia en este curso."
         android:textAlignment="center"
         android:textColor="#94A3B8"
-        android:visibility="gone"
-        android:textSize="16sp"/>
+        android:textSize="16sp"
+        android:visibility="gone" />
 
     <Button
         android:id="@+id/btnCreateSession"
         style="@style/Widget.MaterialComponents.Button"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="NUEVA SESIÓN AHORA"
-        android:backgroundTint="#2563EB"
-        android:textColor="#FFFFFF"
+        android:layout_height="54dp"
         android:layout_marginBottom="8dp"
-        android:visibility="gone"/>
+        android:background="@drawable/bg_button_primary"
+        android:elevation="5dp"
+        android:stateListAnimator="@null"
+        android:text="NUEVA SESION AHORA"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold"
+        android:visibility="gone" />
 
     <Button
         android:id="@+id/btnBack"
-        style="@style/Widget.MaterialComponents.Button.TextButton"
+        style="@style/Widget.MaterialComponents.Button"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="CANCELAR"/>
-
+        android:layout_height="52dp"
+        android:background="@drawable/bg_button_neutral"
+        android:elevation="4dp"
+        android:stateListAnimator="@null"
+        android:text="CANCELAR"
+        android:textColor="#0F172A"
+        android:textStyle="bold" />
 </LinearLayout>

@@ -45,10 +45,14 @@ class SummaryActivity : AppCompatActivity() {
         val summaryList = (serializableList as? List<StudentSummary>) ?: emptyList()
         val courseName = intent.getStringExtra("COURSE_NAME") ?: getString(R.string.unspecified)
         val totalTime = intent.getIntExtra("TOTAL_TIME", 0)
+        val previewMode = intent.getBooleanExtra("SUMMARY_PREVIEW_MODE", false)
+        val sessionTitle = intent.getStringExtra("SESSION_TITLE").orEmpty()
+        val sessionDescription = intent.getStringExtra("SESSION_DESCRIPTION").orEmpty()
 
         viewModel.onIntent(SummaryIntent.Init(summaryList, courseName, totalTime))
 
         setupUI()
+        setupPreviewMode(previewMode, sessionTitle, sessionDescription)
         observeViewModel()
     }
 
@@ -66,12 +70,25 @@ class SummaryActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupPreviewMode(previewMode: Boolean, sessionTitle: String, sessionDescription: String) {
+        if (!previewMode) return
+
+        binding.btnSyncMoodle.visibility = android.view.View.GONE
+        binding.btnExportPdf.text = "DESCARGAR / COMPARTIR PDF"
+        binding.tvClassStats.text = "Curso: ${intent.getStringExtra("COURSE_NAME") ?: getString(R.string.unspecified)}\nSesion: $sessionTitle\n$sessionDescription"
+    }
+
     private fun observeViewModel() {
         lifecycleScope.launch {
             viewModel.state.collect { state ->
                 val minutes = state.totalTime / 60
                 val seconds = state.totalTime % 60
                 binding.tvClassStats.text = "Curso: ${state.courseName}\nDuracion efectiva: ${String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)}\n${state.summaryList.size} alumnos evaluados"
+                if (intent.getBooleanExtra("SUMMARY_PREVIEW_MODE", false)) {
+                    val sessionTitle = intent.getStringExtra("SESSION_TITLE").orEmpty()
+                    val sessionDescription = intent.getStringExtra("SESSION_DESCRIPTION").orEmpty()
+                    binding.tvClassStats.text = "Curso: ${state.courseName}\nSesion: $sessionTitle\n$sessionDescription"
+                }
 
                 val attended = state.summaryList.count { it.status == "P" }
                 val averageConc = if (state.summaryList.isNotEmpty()) state.summaryList.map { it.concentration }.average().toInt() else 0
@@ -83,7 +100,11 @@ class SummaryActivity : AppCompatActivity() {
                 binding.tvMoodleMetric.text = "Moodle: $synced/${state.summaryList.size} alumnos sincronizados | Cortes totales: $totalCuts"
 
                 binding.tvSummaryStudents.text = if (state.summaryList.isEmpty()) {
-                    getString(R.string.no_session_data)
+                    if (intent.getBooleanExtra("SUMMARY_PREVIEW_MODE", false)) {
+                        "Vista previa historica\n\nEsta sesion ya existe en Moodle. El detalle BLE por alumno no esta guardado localmente en este dispositivo, por eso no se muestran porcentajes individuales.\n\nPara generar un reporte completo, finaliza una clase desde la app; ahi se registra asistencia, presencia final, concentracion, cortes de senal y sincronizacion Moodle."
+                    } else {
+                        getString(R.string.no_session_data)
+                    }
                 } else {
                     state.summaryList.joinToString("\n\n") { student ->
                         val attendance = if (student.status == "P") "ASISTIO" else "NO ASISTIO"
@@ -126,7 +147,8 @@ class SummaryActivity : AppCompatActivity() {
     private fun generateAndSharePdf() {
         val state = viewModel.state.value
         val summaryList = state.summaryList
-        if (summaryList.isEmpty()) {
+        val previewMode = intent.getBooleanExtra("SUMMARY_PREVIEW_MODE", false)
+        if (summaryList.isEmpty() && !previewMode) {
             Toast.makeText(this, getString(R.string.no_data_export), Toast.LENGTH_SHORT).show()
             return
         }
@@ -152,7 +174,7 @@ class SummaryActivity : AppCompatActivity() {
         }
 
         val attended = summaryList.count { it.status == "P" }
-        val averageConc = summaryList.map { it.concentration }.average().toInt()
+        val averageConc = if (summaryList.isNotEmpty()) summaryList.map { it.concentration }.average().toInt() else 0
         val totalCuts = summaryList.sumOf { it.disconnections }
         val synced = summaryList.count { it.moodleSynced }
 
@@ -167,6 +189,16 @@ class SummaryActivity : AppCompatActivity() {
         y += 18f
         canvas.drawText("Asistencia: $attended/${summaryList.size} | Concentracion promedio: $averageConc% | Cortes: $totalCuts | Moodle: $synced/${summaryList.size}", 40f, y, subtitlePaint)
         y += 18f
+        if (previewMode && summaryList.isEmpty()) {
+            val sessionTitle = intent.getStringExtra("SESSION_TITLE").orEmpty()
+            val sessionDescription = intent.getStringExtra("SESSION_DESCRIPTION").orEmpty()
+            canvas.drawText("Sesion Moodle: $sessionTitle", 40f, y, textPaint)
+            y += 13f
+            canvas.drawText("Descripcion: $sessionDescription", 40f, y, textPaint)
+            y += 16f
+            canvas.drawText("Vista previa historica: sin detalle BLE local disponible para esta sesion.", 40f, y, textPaint)
+            y += 18f
+        }
         canvas.drawText("Criterio: un alumno asiste si fue detectado por Bluetooth BLE durante la clase activa.", 40f, y, textPaint)
         y += 13f
         canvas.drawText("La concentracion mide permanencia estable; los cortes indican perdidas de senal.", 40f, y, textPaint)

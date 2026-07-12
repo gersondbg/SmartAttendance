@@ -14,7 +14,13 @@ class GenericSelectionAdapter(
     private val onItemClick: (SelectionItem) -> Unit
 ) : RecyclerView.Adapter<GenericSelectionAdapter.ViewHolder>() {
 
-    data class SelectionItem(val id: Int, val title: String, val subtitle: String = "")
+    data class SelectionItem(
+        val id: Int,
+        val title: String,
+        val subtitle: String = "",
+        val startsAtSeconds: Long = 0L,
+        val isPast: Boolean = false
+    )
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val title: TextView = view.findViewById(R.id.tvTitle)
@@ -33,16 +39,27 @@ class GenericSelectionAdapter(
         val item = items[position]
         val isActiveSession = SessionStore.activeClassRunning && SessionStore.activeSessionId == item.id
         val isLastSelectedSession = !SessionStore.activeClassRunning && SessionStore.activeSessionId == item.id
+        val isPastReport = item.isPast && !isActiveSession && !isLastSelectedSession
 
         holder.title.text = item.title
         holder.subtitle.text = item.subtitle
-        holder.status.text = if (isActiveSession) "EN CURSO" else "ULTIMA"
+        holder.status.text = when {
+            isActiveSession -> "EN CURSO"
+            isLastSelectedSession -> "ULTIMA"
+            isPastReport -> "REPORTE"
+            else -> ""
+        }
         holder.status.setTextColor(Color.parseColor(if (isActiveSession) "#166534" else "#475569"))
         holder.status.setBackgroundColor(Color.parseColor(if (isActiveSession) "#DCFCE7" else "#E2E8F0"))
-        holder.status.visibility = if (isActiveSession || isLastSelectedSession) View.VISIBLE else View.GONE
-        holder.hint.text = if (isActiveSession) "Toca para retomar la clase activa" else "Ultima sesion abierta"
+        holder.status.visibility = if (isActiveSession || isLastSelectedSession || isPastReport) View.VISIBLE else View.GONE
+        holder.hint.text = when {
+            isActiveSession -> "Toca para retomar la clase activa"
+            isLastSelectedSession -> "Ultima sesion abierta"
+            isPastReport -> "Toca para ver vista previa del reporte"
+            else -> ""
+        }
         holder.hint.setTextColor(Color.parseColor(if (isActiveSession) "#15803D" else "#64748B"))
-        holder.hint.visibility = if (isActiveSession || isLastSelectedSession) View.VISIBLE else View.GONE
+        holder.hint.visibility = if (isActiveSession || isLastSelectedSession || isPastReport) View.VISIBLE else View.GONE
         holder.itemView.setBackgroundColor(
             when {
                 isActiveSession -> Color.parseColor("#ECFDF5")

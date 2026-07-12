@@ -105,6 +105,16 @@ class SessionSelectionActivity : AppCompatActivity() {
                         intent.putExtra("USER_NAME", getIntent().getStringExtra("USER_NAME"))
                         startActivity(intent)
                     }
+                    is SessionSelectionEffect.NavigateToSummaryPreview -> {
+                        val intent = Intent(this@SessionSelectionActivity, SummaryActivity::class.java).apply {
+                            putExtra("COURSE_NAME", SessionStore.activeCourseName ?: "Curso")
+                            putExtra("TOTAL_TIME", 0)
+                            putExtra("SUMMARY_PREVIEW_MODE", true)
+                            putExtra("SESSION_TITLE", effect.sessionTitle)
+                            putExtra("SESSION_DESCRIPTION", effect.sessionDescription)
+                        }
+                        startActivity(intent)
+                    }
                     is SessionSelectionEffect.Exit -> finish()
                     is SessionSelectionEffect.ShowError -> {
                         Toast.makeText(this@SessionSelectionActivity, effect.message, Toast.LENGTH_SHORT).show()

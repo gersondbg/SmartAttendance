@@ -118,8 +118,9 @@
             android:layout_width="match_parent"
             android:layout_height="54dp"
             android:layout_marginTop="16dp"
-            android:backgroundTint="#16A34A"
+            android:background="@drawable/bg_button_success"
             android:elevation="4dp"
+            android:stateListAnimator="@null"
             android:text="COMPARTIR REPORTE PDF"
             android:textColor="#FFFFFF" />
 
@@ -128,8 +129,9 @@
             android:layout_width="match_parent"
             android:layout_height="54dp"
             android:layout_marginTop="8dp"
-            android:backgroundTint="#1E3A8A"
+            android:background="@drawable/bg_button_primary"
             android:elevation="4dp"
+            android:stateListAnimator="@null"
             android:text="SINCRONIZANDO CON MOODLE..."
             android:textColor="#FFFFFF" />
 
@@ -138,7 +140,7 @@
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:layout_marginTop="8dp"
-            android:backgroundTint="#E2E8F0"
+            android:background="@drawable/bg_button_neutral"
             android:text="VOLVER"
             android:textColor="#1E293B" />
     </LinearLayout>
