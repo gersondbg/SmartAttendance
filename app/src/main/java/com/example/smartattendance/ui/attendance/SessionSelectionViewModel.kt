@@ -96,7 +96,8 @@ class SessionSelectionViewModel(
             isLoading = true, 
             isSelectingModule = false, 
             titleRes = com.example.smartattendance.R.string.select_session_moodle,
-            showCreateButton = true
+            showCreateButton = true,
+            currentAttendanceId = attendanceId
         )
         viewModelScope.launch {
             repository.getSessions(attendanceId)

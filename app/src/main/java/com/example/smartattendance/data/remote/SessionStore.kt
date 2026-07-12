@@ -55,6 +55,35 @@ object SessionStore {
         get() = prefs.getString("currentUserUsername", null)
         set(value) = prefs.edit().putString("currentUserUsername", value).apply()
 
+    var activeClassRunning: Boolean
+        get() = prefs.getBoolean("activeClassRunning", false)
+        set(value) = prefs.edit().putBoolean("activeClassRunning", value).apply()
+
+    var activeClassStartedAtMillis: Long
+        get() = prefs.getLong("activeClassStartedAtMillis", 0L)
+        set(value) = prefs.edit().putLong("activeClassStartedAtMillis", value).apply()
+
+    var activeClassDurationSeconds: Int
+        get() = prefs.getInt("activeClassDurationSeconds", 0)
+        set(value) = prefs.edit().putInt("activeClassDurationSeconds", value).apply()
+
+    var activeClassPaused: Boolean
+        get() = prefs.getBoolean("activeClassPaused", false)
+        set(value) = prefs.edit().putBoolean("activeClassPaused", value).apply()
+
+    var activeClassPausedRemainingSeconds: Int
+        get() = prefs.getInt("activeClassPausedRemainingSeconds", 0)
+        set(value) = prefs.edit().putInt("activeClassPausedRemainingSeconds", value).apply()
+
+    fun clearActiveClass() {
+        prefs.edit()
+            .remove("activeClassRunning")
+            .remove("activeClassStartedAtMillis")
+            .remove("activeClassDurationSeconds")
+            .remove("activeClassPaused")
+            .remove("activeClassPausedRemainingSeconds")
+            .apply()
+    }
     fun clear() {
         prefs.edit().clear().apply()
     }

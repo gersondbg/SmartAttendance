@@ -95,7 +95,7 @@ class TeacherViewModel(
         when (intent) {
             is TeacherIntent.LoadStudents -> loadInitialData()
             is TeacherIntent.StartClass -> startClass(intent.durationMinutes)
-            is TeacherIntent.TogglePause -> _state.value = _state.value.copy(isPaused = !_state.value.isPaused)
+            is TeacherIntent.TogglePause -> togglePause()
             is TeacherIntent.FinishClass -> finishClass()
             is TeacherIntent.UpdateStudentStatus -> handleManualStatusChange(intent.studentId, intent.status)
             is TeacherIntent.OnStudentDiscovered -> handleStudentDiscovery(
@@ -107,6 +107,43 @@ class TeacherViewModel(
             is TeacherIntent.Tick -> handleTick()
             is TeacherIntent.ResetAttendance -> resetAttendance()
         }
+        AttendanceEventBus.updateFromTeacherState(_state.value)
+    }
+
+    private fun togglePause() {
+        val current = _state.value
+        val nextPaused = !current.isPaused
+        SessionStore.activeClassPaused = nextPaused
+        SessionStore.activeClassPausedRemainingSeconds = current.remainingSeconds
+        if (!nextPaused && current.isClassActive) {
+            val elapsed = current.initialDurationSeconds - current.remainingSeconds
+            SessionStore.activeClassStartedAtMillis = System.currentTimeMillis() - (elapsed * 1000L)
+        }
+        _state.value = current.copy(isPaused = nextPaused)
+    }
+
+    private fun restoreActiveClass() {
+        val durationSec = SessionStore.activeClassDurationSeconds
+        val startedAt = SessionStore.activeClassStartedAtMillis
+        if (!SessionStore.activeClassRunning || durationSec <= 0 || startedAt <= 0L) return
+
+        val elapsed = if (SessionStore.activeClassPaused) {
+            (durationSec - SessionStore.activeClassPausedRemainingSeconds).coerceAtLeast(0)
+        } else {
+            ((System.currentTimeMillis() - startedAt) / 1000).toInt().coerceAtLeast(0)
+        }
+        val remaining = (durationSec - elapsed).coerceAtLeast(0)
+        if (remaining == 0) {
+            SessionStore.clearActiveClass()
+            return
+        }
+        _state.value = _state.value.copy(
+            isClassActive = true,
+            isPaused = SessionStore.activeClassPaused,
+            initialDurationSeconds = durationSec,
+            elapsedSeconds = elapsed,
+            remainingSeconds = remaining
+        )
         AttendanceEventBus.updateFromTeacherState(_state.value)
     }
 
@@ -153,8 +190,10 @@ class TeacherViewModel(
                     courseName = SessionStore.activeCourseName ?: "Curso",
                     sessionName = SessionStore.activeAttendanceName ?: "Asistencia"
                 )
+                restoreActiveClass()
             }.onFailure {
                 _state.value = _state.value.copy(isLoading = false)
+                restoreActiveClass()
                 _effect.emit(TeacherEffect.ShowMessage(com.example.smartattendance.R.string.error_loading_data))
             }
         }
@@ -174,6 +213,12 @@ class TeacherViewModel(
                 isMoving = false
             )
         }
+        val now = System.currentTimeMillis()
+        SessionStore.activeClassRunning = true
+        SessionStore.activeClassStartedAtMillis = now
+        SessionStore.activeClassDurationSeconds = durationSec
+        SessionStore.activeClassPaused = false
+        SessionStore.activeClassPausedRemainingSeconds = durationSec
         _state.value = _state.value.copy(
             isClassActive = true,
             isPaused = false,
@@ -218,9 +263,15 @@ class TeacherViewModel(
             )
         }
 
-        val newRemaining = (currentState.remainingSeconds - 1).coerceAtLeast(0)
+        val elapsedByClock = if (SessionStore.activeClassStartedAtMillis > 0L) {
+            ((System.currentTimeMillis() - SessionStore.activeClassStartedAtMillis) / 1000).toInt().coerceAtLeast(0)
+        } else {
+            currentState.elapsedSeconds + 1
+        }
+        val newRemaining = (currentState.initialDurationSeconds - elapsedByClock).coerceAtLeast(0)
+        SessionStore.activeClassPausedRemainingSeconds = newRemaining
         _state.value = currentState.copy(
-            elapsedSeconds = currentState.elapsedSeconds + 1,
+            elapsedSeconds = elapsedByClock,
             remainingSeconds = newRemaining,
             students = updatedStudents,
             isClassActive = newRemaining > 0
@@ -325,6 +376,7 @@ class TeacherViewModel(
     private fun finishClass() {
         val currentState = _state.value
         _state.value = currentState.copy(isClassActive = false)
+        SessionStore.clearActiveClass()
         AttendanceEventBus.publish(AttendanceEvent("CLASS_FINISHED", "Clase finalizada", "Se genero el resumen y se sincronizara con Moodle."))
 
         val summaryList = currentState.students.values.map {

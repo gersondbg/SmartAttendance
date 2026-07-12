@@ -16,6 +16,7 @@ import android.os.Looper
 import android.os.ParcelUuid
 import android.view.View
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -43,6 +44,8 @@ class TeacherActivity : AppCompatActivity() {
     
     private val scanHandler = Handler(Looper.getMainLooper())
     private val tickHandler = Handler(Looper.getMainLooper())
+    private var tickLoopStarted = false
+    private var scanLoopStarted = false
 
     private val autoScanRunnable = object : Runnable {
         override fun run() {
@@ -78,11 +81,52 @@ class TeacherActivity : AppCompatActivity() {
         
         setupRecyclerView()
         setupUI()
+        setupBackBehavior()
         observeViewModel()
         requestBluetoothSetup()
         registerReceiverCompat()
         
         viewModel.onIntent(TeacherIntent.LoadStudents)
+    }
+
+    private fun setupBackBehavior() {
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (viewModel.state.value.isClassActive || SessionStore.activeClassRunning) {
+                    Toast.makeText(this@TeacherActivity, "Clase activa: puedes retomarla desde la lista", Toast.LENGTH_SHORT).show()
+                    navigateToSessionSelection()
+                } else {
+                    navigateToSessionSelection()
+                }
+            }
+        })
+    }
+
+    private fun navigateToSessionSelection() {
+        val intent = Intent(this, SessionSelectionActivity::class.java).apply {
+            putExtra(SessionSelectionActivity.EXTRA_OPEN_ACTIVE_ATTENDANCE, true)
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
+        startActivity(intent)
+    }
+
+    private fun startUiLoops() {
+        if (!tickLoopStarted) {
+            tickLoopStarted = true
+            tickHandler.post(tickRunnable)
+        }
+        if (!scanLoopStarted) {
+            scanLoopStarted = true
+            scanHandler.post(autoScanRunnable)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (SessionStore.activeClassRunning) {
+            TeacherClassSessionService.start(this)
+            startUiLoops()
+        }
     }
 
     private fun registerReceiverCompat() {
@@ -114,17 +158,21 @@ class TeacherActivity : AppCompatActivity() {
             
             binding.sliderDistance.isEnabled = false
             
-            tickHandler.post(tickRunnable)
-            scanHandler.post(autoScanRunnable)
+            startUiLoops()
         }
         binding.btnPause.setOnClickListener { viewModel.onIntent(TeacherIntent.TogglePause) }
 
         binding.sliderDistance.addOnChangeListener { _, value, _ ->
-            binding.tvDistanceLabel.text = "Radio de DetecciÃƒÂ³n: ${value.toInt()} metros"
+            binding.tvDistanceLabel.text = "Radio de Deteccion: ${value.toInt()} metros"
             viewModel.setMaxDetectionMeters(value.toInt())
         }
         binding.btnFinish.setOnClickListener { viewModel.onIntent(TeacherIntent.FinishClass) }
-        binding.btnLogout.setOnClickListener { if (viewModel.state.value.isClassActive) viewModel.onIntent(TeacherIntent.FinishClass); finish() }
+        binding.btnLogout.setOnClickListener {
+            if (viewModel.state.value.isClassActive || SessionStore.activeClassRunning) {
+                Toast.makeText(this, "Clase activa: puedes retomarla desde la lista", Toast.LENGTH_SHORT).show()
+            }
+            navigateToSessionSelection()
+        }
         binding.btnScan.setOnClickListener { refreshBleScan() }
         binding.btnDashboard.setOnClickListener {
             startActivity(Intent(this, TeacherDashboardActivity::class.java))
@@ -190,6 +238,8 @@ class TeacherActivity : AppCompatActivity() {
                     is TeacherEffect.NavigateToSummary -> {
                         TeacherClassSessionService.stop(this@TeacherActivity)
                         stopBleScan()
+                        tickLoopStarted = false
+                        scanLoopStarted = false
                         tickHandler.removeCallbacks(tickRunnable)
                         scanHandler.removeCallbacks(autoScanRunnable)
                         
@@ -278,6 +328,8 @@ class TeacherActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        tickLoopStarted = false
+        scanLoopStarted = false
         tickHandler.removeCallbacks(tickRunnable)
         scanHandler.removeCallbacks(autoScanRunnable)
         stopBleScan()
@@ -291,7 +343,8 @@ class TeacherActivity : AppCompatActivity() {
         return when {
             rssi > -60 -> "Fuerte"
             rssi > -80 -> "Media"
-            else -> "Débil"
+            else -> "DÃ©bil"
         }
     }
 }
+

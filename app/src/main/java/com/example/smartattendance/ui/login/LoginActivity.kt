@@ -12,7 +12,9 @@ import com.example.smartattendance.data.remote.SessionStore
 import com.example.smartattendance.databinding.ActivityLoginBinding
 import com.example.smartattendance.domain.model.User
 import com.example.smartattendance.ui.attendance.CourseSelectionActivity
+import com.example.smartattendance.ui.attendance.SessionSelectionActivity
 import com.example.smartattendance.ui.attendance.StudentActivity
+import com.example.smartattendance.ui.attendance.TeacherActivity
 import kotlinx.coroutines.launch
 
 class LoginActivity : AppCompatActivity() {
@@ -24,7 +26,14 @@ class LoginActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         
         if (SessionStore.moodleToken != null && SessionStore.currentUserId != null) {
-            val intent = Intent(this, CourseSelectionActivity::class.java)
+            val target = when {
+                SessionStore.currentUserRole == "teacher" && SessionStore.activeClassRunning && SessionStore.activeSessionId != null -> TeacherActivity::class.java
+                SessionStore.currentUserRole == "student" -> StudentActivity::class.java
+                else -> CourseSelectionActivity::class.java
+            }
+            val intent = Intent(this, target).apply {
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            }
             intent.putExtra("USER_NAME", SessionStore.currentUserName ?: "")
             intent.putExtra("USER_USERNAME", SessionStore.currentUserUsername ?: "")
             intent.putExtra("USER_ID", SessionStore.currentUserId ?: -1)
@@ -75,7 +84,7 @@ class LoginActivity : AppCompatActivity() {
             }
         }
 
-        // Observar EFECTOS (Side effects: Navegación, Toasts)
+        // Observar EFECTOS (Side effects: NavegaciÃƒÂ³n, Toasts)
         lifecycleScope.launch {
             viewModel.effect.collect { effect ->
                 when (effect) {
@@ -87,7 +96,7 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun navigateToHome(user: User) {
-        // Guardar en SessionStore (esto podría ser parte de un UseCase, pero lo mantenemos aquí por simplicidad)
+        // Guardar en SessionStore (esto podrÃƒÂ­a ser parte de un UseCase, pero lo mantenemos aquÃƒÂ­ por simplicidad)
         SessionStore.currentUserId = user.id
         SessionStore.currentUserRole = user.role
         SessionStore.currentUserName = user.fullname

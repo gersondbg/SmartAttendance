@@ -15,6 +15,10 @@ import kotlinx.coroutines.launch
 
 class SessionSelectionActivity : AppCompatActivity() {
 
+    companion object {
+        const val EXTRA_OPEN_ACTIVE_ATTENDANCE = "OPEN_ACTIVE_ATTENDANCE"
+    }
+
     private lateinit var binding: ActivitySessionSelectionBinding
     private val viewModel: SessionSelectionViewModel by viewModels()
     private lateinit var adapter: GenericSelectionAdapter
@@ -28,7 +32,13 @@ class SessionSelectionActivity : AppCompatActivity() {
         observeViewModel()
         
         val courseId = SessionStore.activeCourseId ?: 0
-        viewModel.onIntent(SessionSelectionIntent.LoadModules(courseId))
+        val activeAttendanceId = SessionStore.activeAttendanceId
+        val shouldOpenActiveAttendance = intent.getBooleanExtra(EXTRA_OPEN_ACTIVE_ATTENDANCE, false)
+        if ((SessionStore.activeClassRunning || shouldOpenActiveAttendance) && activeAttendanceId != null) {
+            viewModel.onIntent(SessionSelectionIntent.LoadSessions(activeAttendanceId))
+        } else {
+            viewModel.onIntent(SessionSelectionIntent.LoadModules(courseId))
+        }
     }
 
     private fun setupUI() {
@@ -55,7 +65,9 @@ class SessionSelectionActivity : AppCompatActivity() {
                 val courseId = SessionStore.activeCourseId ?: 0
                 viewModel.onIntent(SessionSelectionIntent.LoadModules(courseId))
             } else {
-                finish()
+                startActivity(Intent(this, CourseSelectionActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                })
             }
         }
     }
@@ -87,10 +99,11 @@ class SessionSelectionActivity : AppCompatActivity() {
             viewModel.effect.collect { effect ->
                 when (effect) {
                     is SessionSelectionEffect.NavigateToTeacher -> {
-                        val intent = Intent(this@SessionSelectionActivity, TeacherActivity::class.java)
+                        val intent = Intent(this@SessionSelectionActivity, TeacherActivity::class.java).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                        }
                         intent.putExtra("USER_NAME", getIntent().getStringExtra("USER_NAME"))
                         startActivity(intent)
-                        finish()
                     }
                     is SessionSelectionEffect.Exit -> finish()
                     is SessionSelectionEffect.ShowError -> {
